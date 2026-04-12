@@ -1,0 +1,61 @@
+{
+  "name": "Sky",
+  "author": "MakeAwesomeHappen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.0.8",
+    "suncalc": "^1.9.0"
+  },
+  "pebble": {
+    "displayName": "Sky",
+    "uuid": "089d6f1e-361f-4865-ba3b-32578a393e6f",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "StatusCode",
+      "ProgressPercent",
+      "SourceCode",
+      "LatitudeE6",
+      "LongitudeE6",
+      "AzimuthDegX100",
+      "AltitudeDegX100",
+      "GradientAngleDegX100",
+      "ComputedAtEpoch",
+      "TextOverrideMode",
+      "CustomLocationEnabled",
+      "CustomLatitudeE6",
+      "CustomLongitudeE6",
+      "DevModeEnabled",
+      "DevLatitude",
+      "DevLongitude",
+      "DevDateTime",
+      "DevLatitudeE6",
+      "DevLongitudeE6",
+      "DevReferenceEpoch",
+      "DevSweepEnabled",
+      "DevSweepCycleSeconds",
+      "DevShowDebugOverlay",
+      "DebugBenchmark",
+      "CityName",
+      "ReloadFaceToken",
+      "RefreshRequest"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

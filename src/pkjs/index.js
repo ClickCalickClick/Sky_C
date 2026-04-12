@@ -1,0 +1,652 @@
+var SunCalc = require("suncalc");
+var Clay = require("@rebble/clay");
+var clayConfig = require("./config");
+
+var CHICAGO = { lat: 41.8781, lon: -87.6298 };
+var SETTINGS_KEY = "solar-gradient-settings-v1";
+var SOLAR_CACHE_KEY = "solar-gradient-solar-cache-v1";
+var AUTO_UPDATE_MS = 10 * 60 * 1000;
+var RETRY_MS = 5 * 60 * 1000;
+var GEOCODE_TIMEOUT_MS = 4000;
+var STATUS_MESSAGES_ENABLED = true;
+var RELOAD_TOKEN_KEY = "solar-gradient-reload-token-v1";
+var DEV_SWEEP_ALT_MIN = -18;
+var DEV_SWEEP_ALT_MAX = 55;
+var DEV_SWEEP_DEFAULT_SECONDS = 180;
+
+var STATUS = {
+    starting: 0,
+    grabbingLocation: 1,
+    calculatingSun: 2,
+    resolvingCity: 3,
+    sendingPayload: 4,
+    complete: 6
+};
+
+var STATUS_LABEL = {
+    0: "Starting",
+    1: "Grabbing location",
+    2: "Calculating sun position",
+    3: "Resolving city",
+    4: "Sending solar payload",
+    6: "Ready"
+};
+
+var SOURCE = {
+    phone: 0,
+    manual: 1,
+    chicago: 2,
+    cached: 3
+};
+
+var KNOWN_CITIES = [
+    { name: "Davenport", lat: 41.5236, lon: -90.5776 },
+    { name: "Chicago", lat: 41.8781, lon: -87.6298 },
+    { name: "Des Moines", lat: 41.5868, lon: -93.6250 },
+    { name: "Cedar Rapids", lat: 41.9779, lon: -91.6656 },
+    { name: "Madison", lat: 43.0731, lon: -89.4012 },
+    { name: "Minneapolis", lat: 44.9778, lon: -93.2650 },
+    { name: "St. Louis", lat: 38.6270, lon: -90.1994 },
+    { name: "Kansas City", lat: 39.0997, lon: -94.5786 },
+    { name: "Omaha", lat: 41.2565, lon: -95.9345 },
+    { name: "Milwaukee", lat: 43.0389, lon: -87.9065 }
+];
+
+var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
+var retryTimer = null;
+var autoUpdateTimer = null;
+var settings = loadSettings();
+var reloadFaceToken = loadReloadToken();
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function toRadians(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+function distanceKm(latA, lonA, latB, lonB) {
+    var earthRadiusKm = 6371;
+    var dLat = toRadians(latB - latA);
+    var dLon = toRadians(lonB - lonA);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(latA)) * Math.cos(toRadians(latB)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c;
+}
+
+function nearestKnownCityName(lat, lon) {
+    var bestName = "Chicago";
+    var bestDistance = Infinity;
+    var i;
+
+    for (i = 0; i < KNOWN_CITIES.length; i += 1) {
+        var city = KNOWN_CITIES[i];
+        var km = distanceKm(lat, lon, city.lat, city.lon);
+        if (km < bestDistance) {
+            bestDistance = km;
+            bestName = city.name;
+        }
+    }
+
+    return bestName;
+}
+
+function mergeObjects(base, patch) {
+    var out = {};
+    var key;
+    for (key in base) {
+        if (Object.prototype.hasOwnProperty.call(base, key)) {
+            out[key] = base[key];
+        }
+    }
+    for (key in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, key)) {
+            out[key] = patch[key];
+        }
+    }
+    return out;
+}
+
+function toBoolInt(value) {
+    if (value === true || value === "true" || value === 1 || value === "1") {
+        return 1;
+    }
+    return 0;
+}
+
+function parseNumber(value, fallback) {
+    var parsed = Number(value);
+    if (isFinite(parsed)) {
+        return parsed;
+    }
+    return fallback;
+}
+
+function parseDateTime(value) {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    var normalized = String(value).trim();
+    if (!normalized.length) {
+        return null;
+    }
+
+    var parsed = new Date(normalized);
+    if (!isFinite(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed;
+}
+
+function loadReloadToken() {
+    var raw = localStorage.getItem(RELOAD_TOKEN_KEY);
+    if (!raw) {
+        return 0;
+    }
+
+    var parsed = Number(raw);
+    if (isFinite(parsed)) {
+        return parsed | 0;
+    }
+    return 0;
+}
+
+function nextReloadToken() {
+    reloadFaceToken = (reloadFaceToken + 1) & 0x7fffffff;
+    localStorage.setItem(RELOAD_TOKEN_KEY, String(reloadFaceToken));
+    return reloadFaceToken;
+}
+
+function loadSettings() {
+    var defaults = {
+        TextOverrideMode: "0",
+        ForceChicagoForTesting: false,
+        CustomLocationEnabled: false,
+        CustomLatitude: String(CHICAGO.lat),
+        CustomLongitude: String(CHICAGO.lon),
+        DevModeEnabled: false,
+        DevLatitude: String(CHICAGO.lat),
+        DevLongitude: String(CHICAGO.lon),
+        DevDateTime: "",
+        DevSweepEnabled: false,
+        DevSweepCycleSeconds: String(DEV_SWEEP_DEFAULT_SECONDS),
+        DevShowDebugOverlay: true,
+        DebugBenchmark: false
+    };
+
+    var raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) {
+        return defaults;
+    }
+
+    try {
+        return mergeObjects(defaults, JSON.parse(raw));
+    } catch (error) {
+        console.log("[solar] failed to parse saved settings");
+        return defaults;
+    }
+}
+
+function saveSettings(nextSettings) {
+    settings = mergeObjects(settings, nextSettings);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function sendAppMessage(payload, label) {
+    Pebble.sendAppMessage(
+        payload,
+        function() {
+            if (label) {
+                console.log("[solar] sent " + label);
+            }
+        },
+        function(error) {
+            console.log("[solar] failed " + (label || "message") + ": " + (error && error.message ? error.message : error));
+        }
+    );
+}
+
+function sendStatus(statusCode, progressPercent) {
+    if (!STATUS_MESSAGES_ENABLED) {
+        return;
+    }
+    console.log("[solar] stage " + statusCode + ":" + (STATUS_LABEL[statusCode] || "Unknown") + " " + (progressPercent | 0) + "%");
+    sendAppMessage(
+        {
+            StatusCode: statusCode,
+            ProgressPercent: clamp(progressPercent | 0, 0, 100)
+        },
+        "status"
+    );
+}
+
+function normalizeStyleSettings() {
+    var devDate = parseDateTime(settings.DevDateTime);
+    var devLatitude = parseNumber(settings.DevLatitude, CHICAGO.lat);
+    var devLongitude = parseNumber(settings.DevLongitude, CHICAGO.lon);
+
+    return {
+        TextOverrideMode: clamp(parseNumber(settings.TextOverrideMode, 0) | 0, 0, 3),
+        CustomLocationEnabled: toBoolInt(settings.CustomLocationEnabled),
+        CustomLatitudeE6: Math.round(parseNumber(settings.CustomLatitude, CHICAGO.lat) * 1000000),
+        CustomLongitudeE6: Math.round(parseNumber(settings.CustomLongitude, CHICAGO.lon) * 1000000),
+        DevModeEnabled: toBoolInt(settings.DevModeEnabled),
+        DevLatitudeE6: Math.round(devLatitude * 1000000),
+        DevLongitudeE6: Math.round(devLongitude * 1000000),
+        DevReferenceEpoch: devDate ? Math.floor(devDate.getTime() / 1000) : 0,
+        DevSweepEnabled: toBoolInt(settings.DevSweepEnabled),
+        DevSweepCycleSeconds: clamp(parseNumber(settings.DevSweepCycleSeconds, DEV_SWEEP_DEFAULT_SECONDS) | 0, 30, 900),
+        DevShowDebugOverlay: toBoolInt(settings.DevShowDebugOverlay),
+        DebugBenchmark: toBoolInt(settings.DebugBenchmark)
+    };
+}
+
+function sendSettingsToWatch() {
+    sendAppMessage(normalizeStyleSettings(), "settings");
+}
+
+function sendReloadFaceToken(reason) {
+    var token = nextReloadToken();
+    sendAppMessage({ ReloadFaceToken: token }, "reload-face");
+    console.log("[solar] reload token=" + token + " (" + reason + ")");
+}
+
+function cacheSolarPayload(payload) {
+    localStorage.setItem(SOLAR_CACHE_KEY, JSON.stringify(payload));
+}
+
+function getCachedSolarPayload() {
+    var raw = localStorage.getItem(SOLAR_CACHE_KEY);
+    if (!raw) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (error) {
+        return null;
+    }
+}
+
+function sendCachedSolarIfAvailable() {
+    if (!STATUS_MESSAGES_ENABLED) {
+        return;
+    }
+
+    var cached = getCachedSolarPayload();
+    if (!cached) {
+        return;
+    }
+
+    cached.SourceCode = SOURCE.cached;
+    sendStatus(STATUS.sendingPayload, 86);
+    sendAppMessage(cached, "cached-solar");
+}
+
+function scheduleRetry() {
+    if (retryTimer) {
+        return;
+    }
+
+    retryTimer = setTimeout(function() {
+        retryTimer = null;
+        requestAndSendSolar("retry");
+    }, RETRY_MS);
+}
+
+function resolveLocation(done) {
+    var style = normalizeStyleSettings();
+    if (toBoolInt(settings.ForceChicagoForTesting) === 1) {
+        console.log("[solar] forcing Chicago location for testing");
+        done({ lat: CHICAGO.lat, lon: CHICAGO.lon, source: SOURCE.chicago });
+        return;
+    }
+
+    if (style.CustomLocationEnabled === 1) {
+        console.log("[solar] using manual override location");
+        done({
+            lat: style.CustomLatitudeE6 / 1000000,
+            lon: style.CustomLongitudeE6 / 1000000,
+            source: SOURCE.manual
+        });
+        return;
+    }
+
+    if (!navigator.geolocation) {
+        console.log("[solar] geolocation unavailable, using Chicago fallback");
+        done({ lat: CHICAGO.lat, lon: CHICAGO.lon, source: SOURCE.chicago });
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            console.log("[solar] using phone location");
+            done({
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                source: SOURCE.phone
+            });
+        },
+        function(error) {
+            console.log("[solar] location failed, using Chicago fallback: " + (error && error.message ? error.message : error));
+            scheduleRetry();
+            done({ lat: CHICAGO.lat, lon: CHICAGO.lon, source: SOURCE.chicago });
+        },
+        {
+            enableHighAccuracy: false,
+            timeout: 12000,
+            maximumAge: 60 * 60 * 1000
+        }
+    );
+}
+
+function computeSolarPayload(lat, lon, source, when) {
+    var now = when || new Date();
+    var position = SunCalc.getPosition(now, lat, lon);
+    var rawAzimuthDeg = (position.azimuth * 180) / Math.PI;
+    var azimuthDeg = ((rawAzimuthDeg + 180) % 360 + 360) % 360;
+    var gradientAngleDeg = (azimuthDeg + 180) % 360;
+    var altitudeDeg = (position.altitude * 180) / Math.PI;
+
+    return {
+        SourceCode: source,
+        LatitudeE6: Math.round(lat * 1000000),
+        LongitudeE6: Math.round(lon * 1000000),
+        AzimuthDegX100: Math.round(azimuthDeg * 100),
+        AltitudeDegX100: Math.round(altitudeDeg * 100),
+        GradientAngleDegX100: Math.round(gradientAngleDeg * 100),
+        ComputedAtEpoch: Math.floor(now.getTime() / 1000)
+    };
+}
+
+function computeSweepPayload(lat, lon, source, cycleSeconds) {
+    var nowMs = Date.now();
+    var clampedCycle = clamp(cycleSeconds | 0, 30, 900);
+    var cycleMs = clampedCycle * 1000;
+    var phase = (nowMs % cycleMs) / cycleMs;
+    var altitudeDeg = DEV_SWEEP_ALT_MIN + (phase * (DEV_SWEEP_ALT_MAX - DEV_SWEEP_ALT_MIN));
+    var azimuthDeg = (phase * 360 + 360) % 360;
+    var gradientAngleDeg = (azimuthDeg + 180) % 360;
+
+    return {
+        SourceCode: source,
+        LatitudeE6: Math.round(lat * 1000000),
+        LongitudeE6: Math.round(lon * 1000000),
+        AzimuthDegX100: Math.round(azimuthDeg * 100),
+        AltitudeDegX100: Math.round(altitudeDeg * 100),
+        GradientAngleDegX100: Math.round(gradientAngleDeg * 100),
+        ComputedAtEpoch: Math.floor(nowMs / 1000)
+    };
+}
+
+function normalizeCityCandidate(city) {
+    if (city === undefined || city === null) {
+        return "";
+    }
+
+    var normalized = String(city).trim();
+    if (!normalized.length) {
+        return "";
+    }
+
+    if (normalized === "Current" || normalized === "Manual" || normalized === "Cached" || normalized === "Backup") {
+        return "";
+    }
+
+    return normalized;
+}
+
+function requestJson(url, done) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.timeout = GEOCODE_TIMEOUT_MS;
+    xhr.setRequestHeader("Accept", "application/json");
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4) {
+            return;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                done(JSON.parse(xhr.responseText), "");
+            } catch (error) {
+                done(null, "parse");
+            }
+            return;
+        }
+
+        done(null, "status=" + xhr.status);
+    };
+
+    xhr.ontimeout = function() {
+        done(null, "timeout");
+    };
+
+    xhr.onerror = function() {
+        done(null, "network");
+    };
+
+    try {
+        xhr.send();
+    } catch (error) {
+        done(null, "send");
+    }
+}
+
+function cityFromAddress(address) {
+    if (!address) {
+        return "";
+    }
+
+    return normalizeCityCandidate(
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        address.locality ||
+        address.suburb ||
+        address.county ||
+        address.state
+    );
+}
+
+function reverseGeocodeCity(lat, lon, done, onAttempt) {
+    var providers = [
+        {
+            label: "nominatim",
+            url: "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&addressdetails=1&accept-language=en&lat=" + encodeURIComponent(String(lat)) + "&lon=" + encodeURIComponent(String(lon)),
+            parse: function(json) {
+                if (!json) {
+                    return "";
+                }
+                return normalizeCityCandidate(json.name) || cityFromAddress(json.address);
+            }
+        },
+        {
+            label: "mapsco",
+            url: "https://geocode.maps.co/reverse?lat=" + encodeURIComponent(String(lat)) + "&lon=" + encodeURIComponent(String(lon)),
+            parse: function(json) {
+                if (!json) {
+                    return "";
+                }
+                return normalizeCityCandidate(json.display_name) || cityFromAddress(json.address);
+            }
+        },
+        {
+            label: "bigdatacloud",
+            url: "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + encodeURIComponent(String(lat)) + "&longitude=" + encodeURIComponent(String(lon)) + "&localityLanguage=en",
+            parse: function(json) {
+                if (!json) {
+                    return "";
+                }
+                return normalizeCityCandidate(json.city || json.locality || json.principalSubdivision || json.localityInfo && json.localityInfo.administrative && json.localityInfo.administrative[0] && json.localityInfo.administrative[0].name);
+            }
+        }
+    ];
+
+    var index = 0;
+
+    function next() {
+        if (index >= providers.length) {
+            done("");
+            return;
+        }
+
+        var provider = providers[index];
+        if (onAttempt) {
+            onAttempt(provider, index, providers.length);
+        }
+        index += 1;
+
+        requestJson(provider.url, function(json, errorTag) {
+            var city = provider.parse(json);
+            if (city && city.length) {
+                console.log("[solar] city resolved via " + provider.label + ": " + city);
+                done(city);
+                return;
+            }
+
+            console.log("[solar] geocode miss via " + provider.label + (errorTag ? " (" + errorTag + ")" : ""));
+            next();
+        });
+    }
+
+    next();
+}
+
+function resolveCityName(location, done) {
+    sendStatus(STATUS.resolvingCity, 58);
+
+    if (location.source === SOURCE.chicago) {
+        sendStatus(STATUS.resolvingCity, 74);
+        done("Chicago");
+        return;
+    }
+
+    reverseGeocodeCity(location.lat, location.lon, function(city) {
+        if (city && city.length) {
+            console.log("[solar] city resolved: " + city);
+            sendStatus(STATUS.resolvingCity, 76);
+            done(city);
+            return;
+        }
+
+        var fallbackCity = nearestKnownCityName(location.lat, location.lon);
+        console.log("[solar] city fallback nearest=" + fallbackCity + " source=" + location.source);
+        sendStatus(STATUS.resolvingCity, 76);
+        done(fallbackCity);
+    }, function(_provider, attemptIndex, attemptCount) {
+        var geocodeProgress = 60 + Math.round(((attemptIndex + 1) / Math.max(attemptCount, 1)) * 14);
+        sendStatus(STATUS.resolvingCity, geocodeProgress);
+    });
+}
+
+function requestAndSendSolar(reason) {
+    console.log("[solar] update started (" + reason + ")");
+    sendReloadFaceToken("refresh-" + reason);
+    sendStatus(STATUS.starting, 5);
+    sendStatus(STATUS.grabbingLocation, 14);
+
+    var style = normalizeStyleSettings();
+    if (style.DevModeEnabled === 1) {
+        var devLat = style.DevLatitudeE6 / 1000000;
+        var devLon = style.DevLongitudeE6 / 1000000;
+        var payload;
+
+        sendStatus(STATUS.grabbingLocation, 34);
+        sendStatus(STATUS.calculatingSun, 48);
+
+        if (style.DevSweepEnabled === 1) {
+            payload = computeSweepPayload(devLat, devLon, SOURCE.manual, style.DevSweepCycleSeconds);
+            payload.CityName = "Dev Sweep";
+        } else {
+            var devWhen = style.DevReferenceEpoch > 0 ? new Date(style.DevReferenceEpoch * 1000) : new Date();
+            payload = computeSolarPayload(devLat, devLon, SOURCE.manual, devWhen);
+            payload.CityName = "Dev Preview";
+        }
+
+        console.log("[solar] dev payload city=" + payload.CityName + " lat=" + devLat.toFixed(4) + " lon=" + devLon.toFixed(4));
+        cacheSolarPayload(payload);
+        sendStatus(STATUS.sendingPayload, 88);
+        sendAppMessage(payload, "solar-payload");
+        sendSettingsToWatch();
+        sendStatus(STATUS.complete, 100);
+        return;
+    }
+
+    resolveLocation(function(location) {
+        sendStatus(STATUS.grabbingLocation, 34);
+        sendStatus(STATUS.calculatingSun, 48);
+        var payload = computeSolarPayload(location.lat, location.lon, location.source, null);
+        resolveCityName(location, function(cityName) {
+            payload.CityName = cityName;
+            console.log("[solar] computed source=" + location.source + " city=" + cityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
+            cacheSolarPayload(payload);
+            sendStatus(STATUS.sendingPayload, 88);
+            sendAppMessage(payload, "solar-payload");
+            sendSettingsToWatch();
+            sendStatus(STATUS.complete, 100);
+        });
+    });
+}
+
+function startSchedulers() {
+    if (!autoUpdateTimer) {
+        autoUpdateTimer = setInterval(function() {
+            requestAndSendSolar("auto-refresh");
+        }, AUTO_UPDATE_MS);
+    }
+}
+
+function applyClaySettingsFromResponse(response) {
+    var parsed = clay.getSettings(response) || {};
+    clay.setSettings(parsed);
+    saveSettings(parsed);
+    sendSettingsToWatch();
+    requestAndSendSolar("settings-updated");
+}
+
+function readRefreshRequest(payload) {
+    if (!payload) {
+        return 0;
+    }
+    if (payload.RefreshRequest !== undefined) {
+        return Number(payload.RefreshRequest) || 0;
+    }
+    if (payload.ReloadFaceToken !== undefined) {
+        return 1;
+    }
+    return 0;
+}
+
+Pebble.addEventListener("ready", function() {
+    console.log("[solar] pkjs ready");
+    sendSettingsToWatch();
+    sendCachedSolarIfAvailable();
+    requestAndSendSolar("startup");
+    startSchedulers();
+});
+
+Pebble.addEventListener("appmessage", function(event) {
+    if (readRefreshRequest(event.payload) === 1) {
+        console.log("[solar] refresh requested by watch");
+        requestAndSendSolar("watch-request");
+    }
+});
+
+Pebble.addEventListener("showConfiguration", function() {
+    Pebble.openURL(clay.generateUrl());
+});
+
+Pebble.addEventListener("webviewclosed", function(event) {
+    if (!event || !event.response || event.response === "CANCELLED") {
+        return;
+    }
+    applyClaySettingsFromResponse(event.response);
+});
