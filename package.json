@@ -14,12 +14,9 @@
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
-      "aplite",
       "basalt",
       "chalk",
-      "diorite",
       "emery",
-      "flint",
       "gabbro"
     ],
     "watchapp": {
@@ -36,6 +33,8 @@
       "GradientAngleDegX100",
       "ComputedAtEpoch",
       "TextOverrideMode",
+      "MotionMode",
+      "BatterySaveMode",
       "CustomLocationEnabled",
       "CustomLatitudeE6",
       "CustomLongitudeE6",

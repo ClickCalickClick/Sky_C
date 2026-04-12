@@ -45,6 +45,41 @@ module.exports = [
     items: [
       {
         type: "heading",
+        defaultValue: "Motion & Battery"
+      },
+      {
+        type: "select",
+        messageKey: "MotionMode",
+        label: "Gradient motion",
+        defaultValue: "0",
+        options: [
+          {
+            label: "Hybrid (default)",
+            value: "0"
+          },
+          {
+            label: "Subtle",
+            value: "1"
+          },
+          {
+            label: "Off",
+            value: "2"
+          }
+        ]
+      },
+      {
+        type: "toggle",
+        messageKey: "BatterySaveMode",
+        label: "Battery save mode",
+        defaultValue: false
+      }
+    ]
+  },
+  {
+    type: "section",
+    items: [
+      {
+        type: "heading",
         defaultValue: "Location Source"
       },
       {

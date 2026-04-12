@@ -1,10 +1,13 @@
 # Solar Gradient Analysis (Math, Resolution Impact, and Visual Outcomes)
 
-Date: 2026-04-11
+Date: 2026-04-12
 
 ## 1) Scope
 
-This document analyzes how the watchface gradient is computed, how well it maps to real solar conditions, and how it presents across all configured Pebble targets.
+This document analyzes how the watchface gradient is computed, how well it maps to real solar conditions, and how it presents across active color Pebble targets.
+
+Active deployment scope (2026-04-12): basalt, chalk, emery, gabbro.
+Legacy BW notes in this document are retained for historical context only.
 
 Primary code paths reviewed:
 - src/c/Sky.c:26-28 (gradient constants)
@@ -30,7 +33,16 @@ Supporting settings and messaging paths reviewed:
 3. Watch maps altitude to a two-color palette by interpolating between atmosphere anchor bands.
 4. Watch draws a directional linear gradient by projecting each pixel block against a unit direction vector.
 5. Watch applies tiny spatial dither to reduce visible banding.
-6. On BW platforms, each RGB sample is thresholded to white/black only.
+6. Legacy note: on BW platforms, each RGB sample was thresholded to white/black only.
+
+## 2.1) Current Acceptance Focus
+
+The current beauty pass must satisfy the strict high-daylight condition:
+
+1. Altitude 40.0-55.0 deg on round displays (chalk/gabbro) must show at least two visibly distinct sky regions behind the time text.
+2. Routine auto-refresh must not switch to full loading card.
+3. Text readability must remain immediate without heavy fallback effects.
+4. No regressions at twilight (-2 to +6 deg) and deep-night (< -18 deg) checkpoints.
 
 ## 3) Core Math and Behavior
 
@@ -97,6 +109,8 @@ Interpretation:
 - BW devices will lose almost all gradient detail in many states because endpoint pairs are often both black or both white after thresholding.
 
 ## 5) Device Resolution and Step-Size Impact
+
+Note: only color targets are currently in active support and acceptance gates.
 
 Verified from build/c4che/*_cache.py (line 21 for each platform):
 - aplite: BW, 144x168

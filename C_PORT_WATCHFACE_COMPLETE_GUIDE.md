@@ -8,6 +8,8 @@ Goal: Document every major behavior in the current app and provide a complete, i
 
 Sky is a color Pebble watchface that renders a sky-like gradient based on current sun position, then overlays time and location/altitude text.
 
+Active support scope (2026-04-12): basalt, chalk, emery, gabbro.
+
 The system is split into two cooperating runtimes:
 
 - Watch runtime (currently Moddable JS on device): renders UI and handles watch-side interaction states.
@@ -15,7 +17,7 @@ The system is split into two cooperating runtimes:
 
 At runtime, the watchface shows:
 
-- Animated loading card with stage labels and progress percentages.
+- Animated loading card with stage labels and progress percentages (cold start/reconnect only).
 - Solar gradient background with directional angle based on azimuth.
 - Time text centered.
 - Footer line with city and altitude.
@@ -37,7 +39,7 @@ At runtime, the watchface shows:
 ## 2.2 Build Characteristics
 
 - projectType is currently moddable.
-- Targets: emery and gabbro.
+- Targets: basalt, chalk, emery, gabbro.
 - enableMultiJS is true.
 - Watchface flag is true.
 - No static media assets are currently bundled.
@@ -76,10 +78,11 @@ From appinfo, key IDs are:
 5. pkjs sends complete payload (lat/lon/azimuth/altitude/gradient angle/city/computed timestamp).
 6. Watch applies payload, reaches 100%, briefly holds loading completion, then transitions to watchface.
 
-## 3.2 Hourly Refresh
+## 3.2 Ten-Minute Refresh
 
-- pkjs schedules hourly updates and pushes fresh payload.
-- watch receives and redraws using latest solar values.
+- pkjs schedules updates every 10 minutes and pushes fresh payload.
+- Routine refreshes update the face in place (no full loading-card takeover).
+- Full loading-card UX is reserved for cold start and reconnect recovery.
 
 ## 3.3 Retry Behavior
 
@@ -531,7 +534,7 @@ To claim parity, verify all of these:
 - time centered and readable in all backgrounds
 - footer city and altitude render correctly
 - reconnect triggers loading then fresh payload
-- hourly refresh updates city/altitude/gradient
+- routine 10-minute refresh updates city/altitude/gradient without full loading card
 - fallback still shows usable face if loading times out
 
 ## 10. Test Plan For C Port
@@ -601,7 +604,7 @@ A C version is acceptable when:
 - no crash loops or unhandled appmessage errors
 - all primary visual features match existing behavior
 - phone settings update behavior is preserved
-- reconnect refresh and hourly updates are operational
+- reconnect refresh and routine 10-minute updates are operational
 - memory footprint remains stable with safety headroom
 
 ## 13. Practical Notes For The Next Build Request

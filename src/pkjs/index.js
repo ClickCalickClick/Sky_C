@@ -165,6 +165,8 @@ function nextReloadToken() {
 function loadSettings() {
     var defaults = {
         TextOverrideMode: "0",
+        MotionMode: "0",
+        BatterySaveMode: false,
         ForceChicagoForTesting: false,
         CustomLocationEnabled: false,
         CustomLatitude: String(CHICAGO.lat),
@@ -232,6 +234,8 @@ function normalizeStyleSettings() {
 
     return {
         TextOverrideMode: clamp(parseNumber(settings.TextOverrideMode, 0) | 0, 0, 3),
+        MotionMode: clamp(parseNumber(settings.MotionMode, 0) | 0, 0, 2),
+        BatterySaveMode: toBoolInt(settings.BatterySaveMode),
         CustomLocationEnabled: toBoolInt(settings.CustomLocationEnabled),
         CustomLatitudeE6: Math.round(parseNumber(settings.CustomLatitude, CHICAGO.lat) * 1000000),
         CustomLongitudeE6: Math.round(parseNumber(settings.CustomLongitude, CHICAGO.lon) * 1000000),
@@ -549,7 +553,9 @@ function resolveCityName(location, done) {
 
 function requestAndSendSolar(reason) {
     console.log("[solar] update started (" + reason + ")");
-    sendReloadFaceToken("refresh-" + reason);
+    if (reason === "startup" || reason === "watch-request") {
+        sendReloadFaceToken("refresh-" + reason);
+    }
     sendStatus(STATUS.starting, 5);
     sendStatus(STATUS.grabbingLocation, 14);
 

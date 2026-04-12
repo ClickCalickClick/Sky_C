@@ -261,6 +261,8 @@
 	function loadSettings() {
 	    var defaults = {
 	        TextOverrideMode: "0",
+	        MotionMode: "0",
+	        BatterySaveMode: false,
 	        ForceChicagoForTesting: false,
 	        CustomLocationEnabled: false,
 	        CustomLatitude: String(CHICAGO.lat),
@@ -328,6 +330,8 @@
 	
 	    return {
 	        TextOverrideMode: clamp(parseNumber(settings.TextOverrideMode, 0) | 0, 0, 3),
+	        MotionMode: clamp(parseNumber(settings.MotionMode, 0) | 0, 0, 2),
+	        BatterySaveMode: toBoolInt(settings.BatterySaveMode),
 	        CustomLocationEnabled: toBoolInt(settings.CustomLocationEnabled),
 	        CustomLatitudeE6: Math.round(parseNumber(settings.CustomLatitude, CHICAGO.lat) * 1000000),
 	        CustomLongitudeE6: Math.round(parseNumber(settings.CustomLongitude, CHICAGO.lon) * 1000000),
@@ -645,7 +649,9 @@
 	
 	function requestAndSendSolar(reason) {
 	    console.log("[solar] update started (" + reason + ")");
-	    sendReloadFaceToken("refresh-" + reason);
+	    if (reason === "startup" || reason === "watch-request") {
+	        sendReloadFaceToken("refresh-" + reason);
+	    }
 	    sendStatus(STATUS.starting, 5);
 	    sendStatus(STATUS.grabbingLocation, 14);
 	
@@ -1153,7 +1159,7 @@
 /* 6 */
 /***/ (function(module, exports) {
 
-	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"CityName":10024,"ComputedAtEpoch":10008,"CustomLatitudeE6":10011,"CustomLocationEnabled":10010,"CustomLongitudeE6":10012,"DebugBenchmark":10023,"DevDateTime":10016,"DevLatitude":10014,"DevLatitudeE6":10017,"DevLongitude":10015,"DevLongitudeE6":10018,"DevModeEnabled":10013,"DevReferenceEpoch":10019,"DevShowDebugOverlay":10022,"DevSweepCycleSeconds":10021,"DevSweepEnabled":10020,"GradientAngleDegX100":10007,"LatitudeE6":10003,"LongitudeE6":10004,"ProgressPercent":10001,"RefreshRequest":10026,"ReloadFaceToken":10025,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009}
+	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10011,"CityName":10026,"ComputedAtEpoch":10008,"CustomLatitudeE6":10013,"CustomLocationEnabled":10012,"CustomLongitudeE6":10014,"DebugBenchmark":10025,"DevDateTime":10018,"DevLatitude":10016,"DevLatitudeE6":10019,"DevLongitude":10017,"DevLongitudeE6":10020,"DevModeEnabled":10015,"DevReferenceEpoch":10021,"DevShowDebugOverlay":10024,"DevSweepCycleSeconds":10023,"DevSweepEnabled":10022,"GradientAngleDegX100":10007,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"ProgressPercent":10001,"RefreshRequest":10028,"ReloadFaceToken":10027,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009}
 
 /***/ }),
 /* 7 */
@@ -1198,6 +1204,41 @@
 	            value: "3"
 	          }
 	        ]
+	      }
+	    ]
+	  },
+	  {
+	    type: "section",
+	    items: [
+	      {
+	        type: "heading",
+	        defaultValue: "Motion & Battery"
+	      },
+	      {
+	        type: "select",
+	        messageKey: "MotionMode",
+	        label: "Gradient motion",
+	        defaultValue: "0",
+	        options: [
+	          {
+	            label: "Hybrid (default)",
+	            value: "0"
+	          },
+	          {
+	            label: "Subtle",
+	            value: "1"
+	          },
+	          {
+	            label: "Off",
+	            value: "2"
+	          }
+	        ]
+	      },
+	      {
+	        type: "toggle",
+	        messageKey: "BatterySaveMode",
+	        label: "Battery save mode",
+	        defaultValue: false
 	      }
 	    ]
 	  },

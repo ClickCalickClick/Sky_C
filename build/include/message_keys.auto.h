@@ -8,6 +8,7 @@
 
 extern uint32_t MESSAGE_KEY_AltitudeDegX100;
 extern uint32_t MESSAGE_KEY_AzimuthDegX100;
+extern uint32_t MESSAGE_KEY_BatterySaveMode;
 extern uint32_t MESSAGE_KEY_CityName;
 extern uint32_t MESSAGE_KEY_ComputedAtEpoch;
 extern uint32_t MESSAGE_KEY_CustomLatitudeE6;
@@ -27,6 +28,7 @@ extern uint32_t MESSAGE_KEY_DevSweepEnabled;
 extern uint32_t MESSAGE_KEY_GradientAngleDegX100;
 extern uint32_t MESSAGE_KEY_LatitudeE6;
 extern uint32_t MESSAGE_KEY_LongitudeE6;
+extern uint32_t MESSAGE_KEY_MotionMode;
 extern uint32_t MESSAGE_KEY_ProgressPercent;
 extern uint32_t MESSAGE_KEY_RefreshRequest;
 extern uint32_t MESSAGE_KEY_ReloadFaceToken;
