@@ -108,6 +108,8 @@
 	var GEOCODE_TIMEOUT_MS = 4000;
 	var STATUS_MESSAGES_ENABLED = true;
 	var RELOAD_TOKEN_KEY = "solar-gradient-reload-token-v1";
+	var OUTBOX_RETRY_DELAY_MS = 180;
+	var OUTBOX_MAX_RETRIES = 4;
 	var DEV_SWEEP_ALT_MIN = -18;
 	var DEV_SWEEP_ALT_MAX = 55;
 	var DEV_SWEEP_DEFAULT_SECONDS = 180;
@@ -150,12 +152,15 @@
 	    { name: "Milwaukee", lat: 43.0389, lon: -87.9065 }
 	];
 	
-	var clay = new Clay(clayConfig);
+	var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 	var retryTimer = null;
 	var autoUpdateTimer = null;
 	var settings = loadSettings();
 	var reloadFaceToken = loadReloadToken();
 	var weatherCache = loadWeatherCache();
+	var outboxQueue = [];
+	var outboxBusy = false;
+	var outboxRetryTimer = null;
 	
 	function clamp(value, min, max) {
 	    return Math.max(min, Math.min(max, value));
@@ -210,9 +215,21 @@
 	}
 	
 	function toBoolInt(value) {
-	    if (value === true || value === "true" || value === 1 || value === "1") {
+	    if (value === true || value === 1) {
 	        return 1;
 	    }
+	
+	    if (value === false || value === 0 || value === null || value === undefined) {
+	        return 0;
+	    }
+	
+	    if (typeof value === "string") {
+	        var normalized = value.trim().toLowerCase();
+	        if (normalized === "true" || normalized === "1" || normalized === "on" || normalized === "yes") {
+	            return 1;
+	        }
+	    }
+	
 	    return 0;
 	}
 	
@@ -272,7 +289,7 @@
 	        TimeSizeGabbro: "1",
 	        ShowLocation: true,
 	        ShowAltitude: true,
-	        WeatherEnabled: false,
+	        WeatherEnabled: true,
 	        WeatherUnitFahrenheit: true,
 	        WeatherDetailLevel: "1",
 	        ForceChicagoForTesting: false,
@@ -335,18 +352,83 @@
 	    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(weatherCache));
 	}
 	
-	function sendAppMessage(payload, label) {
+	function clonePayload(payload) {
+	    return mergeObjects({}, payload || {});
+	}
+	
+	function isAppMessageBusyError(error) {
+	    if (!error) {
+	        return false;
+	    }
+	
+	    var msg = "";
+	    if (error.message !== undefined && error.message !== null) {
+	        msg = String(error.message).toLowerCase();
+	    }
+	    if (msg.indexOf("busy") !== -1) {
+	        return true;
+	    }
+	
+	    var numericCode = Number(error.error);
+	    if (!isFinite(numericCode)) {
+	        numericCode = Number(error.code);
+	    }
+	    return numericCode === 8;
+	}
+	
+	function scheduleOutboxFlush(delayMs) {
+	    if (outboxRetryTimer) {
+	        return;
+	    }
+	
+	    outboxRetryTimer = setTimeout(function() {
+	        outboxRetryTimer = null;
+	        flushOutboxQueue();
+	    }, delayMs);
+	}
+	
+	function flushOutboxQueue() {
+	    if (outboxBusy || outboxQueue.length === 0) {
+	        return;
+	    }
+	
+	    var item = outboxQueue[0];
+	    outboxBusy = true;
+	
 	    Pebble.sendAppMessage(
-	        payload,
+	        item.payload,
 	        function() {
-	            if (label) {
-	                console.log("[solar] sent " + label);
+	            outboxBusy = false;
+	            outboxQueue.shift();
+	            if (item.label) {
+	                console.log("[solar] sent " + item.label);
 	            }
+	            flushOutboxQueue();
 	        },
 	        function(error) {
-	            console.log("[solar] failed " + (label || "message") + ": " + (error && error.message ? error.message : error));
+	            outboxBusy = false;
+	
+	            if (isAppMessageBusyError(error) && item.retries < OUTBOX_MAX_RETRIES) {
+	                item.retries += 1;
+	                scheduleOutboxFlush(OUTBOX_RETRY_DELAY_MS * item.retries);
+	                return;
+	            }
+	
+	            outboxQueue.shift();
+	            console.log("[solar] failed " + (item.label || "message") + ": " +
+	                (error && error.message ? error.message : error));
+	            flushOutboxQueue();
 	        }
 	    );
+	}
+	
+	function sendAppMessage(payload, label) {
+	    outboxQueue.push({
+	        payload: clonePayload(payload),
+	        label: label,
+	        retries: 0
+	    });
+	    flushOutboxQueue();
 	}
 	
 	function sendStatus(statusCode, progressPercent) {
@@ -807,7 +889,7 @@
 	
 	function requestAndSendSolar(reason) {
 	    console.log("[solar] update started (" + reason + ")");
-	    if (reason === "startup" || reason === "watch-request") {
+	    if (reason === "startup" || reason === "watch-request" || reason === "settings-updated") {
 	        sendReloadFaceToken("refresh-" + reason);
 	    }
 	    sendStatus(STATUS.starting, 5);
@@ -877,18 +959,24 @@
 	}
 	
 	function applyClaySettingsFromResponse(response) {
-	    var parsed;
-	
 	    try {
-	        parsed = clay.getSettings(response) || {};
+	        // This internally parses the URL component and stores the flattened
+	        // configuration directly into localStorage 'clay-settings'.
+	        clay.getSettings(response);
 	    } catch (error) {
 	        console.log("[solar] failed to parse Clay response: " + (error && error.message ? error.message : error));
 	        return;
 	    }
 	
-	    clay.setSettings(parsed);
+	    var parsed;
+	    try {
+	        var rawSettings = localStorage.getItem('clay-settings');
+	        parsed = rawSettings ? JSON.parse(rawSettings) : {};
+	    } catch (error) {
+	        parsed = {};
+	    }
+	
 	    saveSettings(parsed);
-	    sendSettingsToWatch();
 	    requestAndSendSolar("settings-updated");
 	}
 	
@@ -896,7 +984,8 @@
 	    var parsed;
 	
 	    try {
-	        parsed = clay.getSettings() || {};
+	        var rawSettings = localStorage.getItem('clay-settings');
+	        parsed = rawSettings ? JSON.parse(rawSettings) : {};
 	    } catch (error) {
 	        console.log("[solar] failed to read Clay storage: " + (error && error.message ? error.message : error));
 	        return;
@@ -925,6 +1014,10 @@
 	    // Prefer fresh phone location on launch; fallback to Chicago happens in resolveLocation.
 	    requestAndSendSolar("startup");
 	    startSchedulers();
+	});
+	
+	Pebble.addEventListener("showConfiguration", function() {
+	    Pebble.openURL(clay.generateUrl());
 	});
 	
 	Pebble.addEventListener("appmessage", function(event) {
@@ -1446,11 +1539,11 @@
 	            value: "0"
 	          },
 	          {
-	            label: "Subtle",
+	            label: "Calm",
 	            value: "1"
 	          },
 	          {
-	            label: "Off",
+	            label: "Dynamic",
 	            value: "2"
 	          }
 	        ]
@@ -1495,7 +1588,7 @@
 	        type: "toggle",
 	        messageKey: "WeatherEnabled",
 	        label: "Enable weather",
-	        defaultValue: false
+	        defaultValue: true
 	      },
 	      {
 	        type: "toggle",

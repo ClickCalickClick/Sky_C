@@ -119,11 +119,11 @@ module.exports = [
             value: "0"
           },
           {
-            label: "Subtle",
+            label: "Calm",
             value: "1"
           },
           {
-            label: "Off",
+            label: "Dynamic",
             value: "2"
           }
         ]
@@ -168,7 +168,7 @@ module.exports = [
         type: "toggle",
         messageKey: "WeatherEnabled",
         label: "Enable weather",
-        defaultValue: false
+        defaultValue: true
       },
       {
         type: "toggle",

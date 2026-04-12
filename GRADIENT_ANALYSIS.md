@@ -239,3 +239,35 @@ This would create an objective "pretty and dramatic" acceptance process per plat
 ---
 
 Prepared outcome: documented analysis complete. Awaiting permission to implement Solar Dev Mode and any rendering refinements.
+
+## 11) Davenport Timing Record (America/Chicago)
+
+Location: Davenport, IA
+Coordinates used: 41.5236, -90.5776
+Timezone: CDT
+
+### 2026-04-12
+
+| Altitude band | Visual expected | Time range |
+|---|---|---|
+| Altitude <= -18 | deep night navy to dark indigo | 00:00-04:49, 21:18-24:00 |
+| -18 to -6 | pre-dawn indigo/violet | 04:49-05:59, 20:08-21:18 |
+| -6 to -2 | twilight purple/magenta | 05:59-06:21, 19:45-20:08 |
+| -2 to +2 | sunrise/sunset coral-orange-pink transition | 06:21-06:43, 19:24-19:45 |
+| +2 to +10 | warm golden-hour orange/peach | 06:43-07:26, 18:41-19:24 |
+| +10 to +20 | daytime sky blues | 07:26-08:19, 17:47-18:41 |
+| +20 | brighter blue/cyan daytime | 08:19-17:47 |
+| +35 | extra daylight enhancement | 09:42-16:24 |
+
+### 2026-04-13
+
+| Altitude band | Visual expected | Time range |
+|---|---|---|
+| Altitude <= -18 | deep night navy to dark indigo | 00:00-04:47, 21:19-24:00 |
+| -18 to -6 | pre-dawn indigo/violet | 04:47-05:57, 20:09-21:19 |
+| -6 to -2 | twilight purple/magenta | 05:57-06:20, 19:47-20:09 |
+| -2 to +2 | sunrise/sunset coral-orange-pink transition | 06:20-06:41, 19:25-19:47 |
+| +2 to +10 | warm golden-hour orange/peach | 06:41-07:24, 18:42-19:25 |
+| +10 to +20 | daytime sky blues | 07:24-08:18, 17:48-18:42 |
+| +20 | brighter blue/cyan daytime | 08:18-17:48 |
+| +35 | extra daylight enhancement | 09:40-16:25 |

@@ -18,8 +18,8 @@
 #define TEXT_MODE_BLACK_GLOW 3
 
 #define MOTION_MODE_HYBRID 0
-#define MOTION_MODE_SUBTLE 1
-#define MOTION_MODE_OFF 2
+#define MOTION_MODE_CALM 1
+#define MOTION_MODE_DYNAMIC 2
 
 #define TIME_SIZE_COMPACT 0
 #define TIME_SIZE_BALANCED 1
@@ -39,6 +39,7 @@
 #define AMBIENT_DRIFT_AMPLITUDE_DEG 2.8f
 #define REFRESH_DRIFT_BOOST_MS 5000
 #define REFRESH_BADGE_MS 1800
+#define EVENT_MOMENT_MS 28000
 
 #define GRADIENT_STEP 2
 #define DITHER_STRENGTH 0.03f
@@ -68,6 +69,7 @@ typedef struct {
 typedef struct {
   GColor color;
   bool glow;
+  GColor glow_color;
 } TextStyle;
 
 typedef struct {
@@ -129,6 +131,7 @@ typedef struct {
   uint32_t angle_transition_started_ms;
   uint32_t last_payload_received_ms;
   uint32_t refresh_badge_until_ms;
+  uint32_t event_moment_until_ms;
   bool launch_done;
   bool has_payload;
   bool had_payload_once;
@@ -192,7 +195,7 @@ static AppState s_state = {
   .time_size_gabbro = TIME_SIZE_BALANCED,
   .show_location = 1,
   .show_altitude = 1,
-  .weather_enabled = 0,
+  .weather_enabled = 1,
   .weather_unit_fahrenheit = 1,
   .weather_detail_level = 1,
   .weather_status = WEATHER_STATUS_STALE,
@@ -205,6 +208,7 @@ static AppState s_state = {
   .status_code = STATUS_STARTING,
   .loading_progress = 0,
   .loading_progress_target = 0,
+  .event_moment_until_ms = 0,
   .launch_done = false,
   .has_payload = false,
   .had_payload_once = false,
@@ -240,8 +244,80 @@ static float prv_absf(float value) {
   return value < 0.0f ? -value : value;
 }
 
+static char prv_ascii_lower(char c) {
+  if (c >= 'A' && c <= 'Z') {
+    return (char)(c + ('a' - 'A'));
+  }
+  return c;
+}
+
+static bool prv_ascii_ieq(const char *a, const char *b) {
+  if (!a || !b) {
+    return false;
+  }
+
+  while (*a && *b) {
+    if (prv_ascii_lower(*a) != prv_ascii_lower(*b)) {
+      return false;
+    }
+    a += 1;
+    b += 1;
+  }
+
+  return (*a == '\0' && *b == '\0');
+}
+
+static int32_t prv_cstring_to_i32(const char *value) {
+  if (!value) {
+    return 0;
+  }
+
+  while (*value == ' ' || *value == '\t' || *value == '\n' || *value == '\r') {
+    value += 1;
+  }
+
+  if (*value == '\0') {
+    return 0;
+  }
+
+  if (prv_ascii_ieq(value, "true") || prv_ascii_ieq(value, "on") || prv_ascii_ieq(value, "yes")) {
+    return 1;
+  }
+  if (prv_ascii_ieq(value, "false") || prv_ascii_ieq(value, "off") || prv_ascii_ieq(value, "no")) {
+    return 0;
+  }
+
+  bool negative = false;
+  if (*value == '-' || *value == '+') {
+    negative = (*value == '-');
+    value += 1;
+  }
+
+  int32_t parsed = 0;
+  bool saw_digit = false;
+  while (*value >= '0' && *value <= '9') {
+    saw_digit = true;
+    parsed = (parsed * 10) + (*value - '0');
+    value += 1;
+  }
+
+  if (!saw_digit) {
+    return 0;
+  }
+
+  return negative ? -parsed : parsed;
+}
+
 static int32_t prv_tuple_to_i32(const Tuple *tuple) {
   if (!tuple) {
+    return 0;
+  }
+
+  if (tuple->type == TUPLE_CSTRING) {
+    return prv_cstring_to_i32(tuple->value->cstring);
+  }
+
+  if (tuple->type == TUPLE_BYTE_ARRAY || tuple->length == 0) {
     return 0;
   }
 
@@ -295,30 +371,39 @@ static GFont prv_time_font_for_mode(const RenderProfile *profile, int32_t size_m
 
   if (mode == TIME_SIZE_COMPACT) {
     font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
-  } else if (mode == TIME_SIZE_LARGE && profile->width >= 200 && profile->height >= 200) {
-    font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+  } else if (mode == TIME_SIZE_LARGE) {
+    if (profile->width >= 200 && profile->height >= 200) {
+      font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+    } else {
+      font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+    }
   } else {
-    font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+    if (profile->width >= 200 && profile->height >= 200) {
+      font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+    } else {
+      font = fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT);
+    }
   }
 
   return font ? font : s_time_font;
 }
 
 static int32_t prv_effective_motion_mode(void) {
-  int32_t mode = prv_clamp_i32(s_state.motion_mode, MOTION_MODE_HYBRID, MOTION_MODE_OFF);
-  if (s_state.battery_save_mode != 0 && mode != MOTION_MODE_OFF) {
-    return MOTION_MODE_SUBTLE;
+  int32_t mode = prv_clamp_i32(s_state.motion_mode, MOTION_MODE_HYBRID, MOTION_MODE_DYNAMIC);
+  if (s_state.battery_save_mode != 0 && mode != MOTION_MODE_CALM) {
+    return MOTION_MODE_CALM;
   }
   return mode;
 }
 
 static uint32_t prv_animation_interval_for_profile(const RenderProfile *profile) {
   int32_t mode = prv_effective_motion_mode();
-  if (mode == MOTION_MODE_OFF) {
-    return 3000;
-  }
-  if (mode == MOTION_MODE_SUBTLE) {
+  if (mode == MOTION_MODE_CALM) {
     return (uint32_t)profile->animation_interval_ms * 2;
+  }
+  if (mode == MOTION_MODE_DYNAMIC) {
+    uint32_t fast = (uint32_t)((profile->animation_interval_ms * 3) / 5);
+    return fast < 550 ? 550 : fast;
   }
   return profile->animation_interval_ms;
 }
@@ -358,6 +443,9 @@ static uint32_t prv_now_ms(void) {
   time_ms(&sec, &ms);
   return (uint32_t)(sec * 1000 + ms);
 }
+
+static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfile *profile);
+static float prv_event_moment_strength(uint32_t now_ms);
 
 static int16_t prv_lerp_i16(int16_t start, int16_t end, float factor) {
   return (int16_t)prv_round_i32((float)start + ((float)(end - start) * factor));
@@ -460,6 +548,32 @@ static Palette prv_enhance_daylight_palette(Palette base, float altitude_deg, co
 #endif
 }
 
+static Palette prv_apply_phase_theme(Palette base, float altitude_deg) {
+#ifdef PBL_COLOR
+  uint16_t seed = prv_daily_variation_seed();
+  float variation = (((float)(seed & 15) / 15.0f) - 0.5f) * 0.8f;
+
+  float deep_night = prv_clampf((-altitude_deg - 10.0f) / 14.0f, 0.0f, 1.0f);
+  float blue_hour = 1.0f - prv_clampf(prv_absf(altitude_deg + 4.0f) / 4.5f, 0.0f, 1.0f);
+  float sunrise_band = 1.0f - prv_clampf(prv_absf(altitude_deg - 0.8f) / 5.5f, 0.0f, 1.0f);
+  float golden_band = 1.0f - prv_clampf(prv_absf(altitude_deg - 8.0f) / 6.0f, 0.0f, 1.0f);
+  float midday = prv_clampf((altitude_deg - 18.0f) / 22.0f, 0.0f, 1.0f);
+
+  base.top.r = prv_clamp_i16(base.top.r + prv_round_i32((-7.0f * deep_night) + (7.0f * sunrise_band) + (3.0f * variation)), 0, 255);
+  base.top.g = prv_clamp_i16(base.top.g + prv_round_i32((5.0f * deep_night) + (4.0f * golden_band) + (5.0f * midday)), 0, 255);
+  base.top.b = prv_clamp_i16(base.top.b + prv_round_i32((15.0f * deep_night) + (11.0f * blue_hour) + (8.0f * midday) - (4.0f * sunrise_band)), 0, 255);
+
+  base.bottom.r = prv_clamp_i16(base.bottom.r + prv_round_i32((11.0f * sunrise_band) + (8.0f * golden_band) - (5.0f * midday) + (4.0f * variation)), 0, 255);
+  base.bottom.g = prv_clamp_i16(base.bottom.g + prv_round_i32((6.0f * golden_band) + (4.0f * midday)), 0, 255);
+  base.bottom.b = prv_clamp_i16(base.bottom.b + prv_round_i32((8.0f * deep_night) + (10.0f * blue_hour) + (8.0f * midday) - (6.0f * sunrise_band)), 0, 255);
+
+  return base;
+#else
+  (void)altitude_deg;
+  return base;
+#endif
+}
+
 static Palette prv_apply_minimum_palette_separation(Palette base, float altitude_deg,
                                                     const RenderProfile *profile) {
 #ifdef PBL_COLOR
@@ -512,6 +626,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
     out.top = s_atmosphere[0].top;
     out.bottom = s_atmosphere[0].bottom;
     out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+    out = prv_apply_phase_theme(out, altitude_deg);
     return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
   }
 
@@ -523,6 +638,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
     out.bottom = max_band->bottom;
     out = prv_widen_palette_contrast(out, contrast_scale);
     out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+    out = prv_apply_phase_theme(out, altitude_deg);
     return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
   }
 
@@ -535,6 +651,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
       out.top = prv_interpolate_rgb(low->top, high->top, t);
       out.bottom = prv_interpolate_rgb(low->bottom, high->bottom, t);
       out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+      out = prv_apply_phase_theme(out, altitude_deg);
       return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
     }
   }
@@ -542,6 +659,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
   out.top = s_atmosphere[0].top;
   out.bottom = s_atmosphere[0].bottom;
   out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+  out = prv_apply_phase_theme(out, altitude_deg);
   return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
 }
 
@@ -572,16 +690,193 @@ static bool prv_should_use_dark_foreground(Rgb sample_rgb) {
   return brightness > TEXT_BRIGHTNESS_THRESHOLD;
 }
 
+static int16_t prv_text_contrast_margin(Rgb sample_rgb, bool dark_foreground) {
+  int16_t brightness = prv_luma_itu601(sample_rgb);
+  return dark_foreground ? brightness : (int16_t)(255 - brightness);
+}
+
+static Rgb prv_sample_gradient_color(Palette palette, GRect bounds, uint32_t now_ms,
+                                     const RenderProfile *profile, float sample_x, float sample_y) {
+  int16_t width = bounds.size.w;
+  int16_t height = bounds.size.h;
+  float altitude_deg = (float)s_state.altitude_deg_x100 / 100.0f;
+  float event_moment = prv_event_moment_strength(now_ms);
+  float angle = prv_effective_gradient_angle_deg(now_ms, profile);
+  int16_t step = GRADIENT_STEP;
+  if ((int32_t)width * (int32_t)height > profile->large_step_area_threshold) {
+    step = profile->gradient_step_large;
+  }
+
+  int32_t trig_angle = (int32_t)(angle * (float)TRIG_MAX_ANGLE / 360.0f);
+  float vx = sin_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+  float vy = -cos_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+  float cx = (float)width * 0.5f;
+  float cy = (float)height * 0.5f;
+  float max_projection = (prv_absf((float)width * vx) * 0.5f) + (prv_absf((float)height * vy) * 0.5f);
+  float denom = max_projection > 0.000001f ? max_projection : 0.000001f;
+  float projection_scale = 0.5f / denom;
+
+  float daylight_strength = prv_clampf((altitude_deg - 25.0f) / 30.0f, 0.0f, 1.0f);
+  float altitude_normalized = prv_clampf((altitude_deg + 5.0f) / 70.0f, 0.0f, 1.0f);
+  float phase_energy = prv_clampf((altitude_deg + 8.0f) / 30.0f, 0.0f, 1.0f);
+  uint16_t daily_seed = prv_daily_variation_seed();
+
+  int32_t sun_trig = (int32_t)(((float)s_state.azimuth_deg_x100 / 100.0f) * (float)TRIG_MAX_ANGLE / 360.0f);
+  float sun_vx = sin_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
+  float sun_vy = -cos_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
+
+  float min_dim = width < height ? width : height;
+  float bloom_offset = (1.0f - altitude_normalized) * (min_dim * 0.30f);
+  float bloom_x = cx + (sun_vx * bloom_offset);
+  float bloom_y = cy + (sun_vy * bloom_offset);
+  float bloom_variation = ((float)(daily_seed & 31) - 15.0f) / 15.0f;
+  float bloom_radius = min_dim * (0.18f + (0.08f * daylight_strength * profile->bloom_radius_mult));
+  bloom_radius *= 1.0f + (0.02f * bloom_variation);
+  float bloom_radius_sq = bloom_radius * bloom_radius;
+  float bloom_gain = 0.11f * daylight_strength * profile->bloom_gain_mult;
+  bloom_gain *= 1.0f + (0.05f * bloom_variation);
+  bloom_gain *= 1.0f + (0.45f * event_moment);
+
+  float horizon_center_t = prv_clampf(0.58f + (0.08f * (0.5f - altitude_normalized)), 0.44f, 0.70f);
+  float horizon_target_t = prv_clampf(0.62f + (0.08f * (0.5f - altitude_normalized)), 0.48f, 0.74f);
+  float horizon_half_width = 0.18f;
+  float horizon_strength = (0.035f + (0.055f * phase_energy)) * (1.0f - (0.45f * daylight_strength));
+  horizon_strength *= profile->gradient_widen_mult;
+  horizon_strength *= 1.0f + (0.35f * event_moment);
+
+  int32_t motion_mode = prv_effective_motion_mode();
+  float texture_strength = 0.012f + (0.016f * phase_energy);
+  if (motion_mode == MOTION_MODE_CALM) {
+    texture_strength *= 0.65f;
+  } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+    texture_strength *= 1.30f;
+  }
+  texture_strength *= 1.0f + (0.18f * event_moment);
+
+  float y_t = prv_clampf(sample_y / (float)height, 0.0f, 1.0f);
+  float center_band = 1.0f - prv_clampf(prv_absf(y_t - 0.5f) / 0.34f, 0.0f, 1.0f);
+  float horizon_weight = 1.0f - prv_clampf(prv_absf(y_t - horizon_center_t) / horizon_half_width, 0.0f, 1.0f);
+  horizon_weight *= horizon_weight;
+
+  float projection = ((sample_y - cy) * vy) + ((sample_x - cx) * vx);
+  float raw_factor = prv_clampf((projection * projection_scale) + 0.5f, 0.0f, 1.0f);
+  float smooth_factor = raw_factor * raw_factor * (3.0f - (2.0f * raw_factor));
+  float center_bias = 0.06f +
+                      (0.12f * phase_energy) +
+                      (0.08f * daylight_strength * phase_energy) +
+                      (0.06f * center_band * phase_energy);
+  center_bias += 0.05f * event_moment;
+  float factor = (raw_factor * (1.0f - center_bias)) + (smooth_factor * center_bias);
+
+  if (center_band > 0.0f && phase_energy > 0.0f) {
+    float center_boost = 1.0f + (0.16f * center_band * phase_energy * (0.6f + (0.4f * daylight_strength)));
+    factor = ((factor - 0.5f) * center_boost) + 0.5f;
+  }
+  factor = prv_clampf(factor, 0.0f, 1.0f);
+
+  if (daylight_strength > 0.0f) {
+    float widened = ((factor - 0.5f) * (1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult))) + 0.5f;
+    factor = prv_clampf(widened, 0.0f, 1.0f);
+  }
+
+  if (horizon_weight > 0.0f) {
+    float pull = prv_clampf(horizon_strength * horizon_weight, 0.0f, 0.22f);
+    factor = (factor * (1.0f - pull)) + (horizon_target_t * pull);
+  }
+
+  int32_t coarse_x = (int32_t)sample_x / (step * 6);
+  int32_t coarse_y = (int32_t)sample_y / (step * 6);
+  float coarse_noise = prv_noise_2d(coarse_x, coarse_y, daily_seed);
+  float detail_noise = prv_noise_2d((coarse_x * 2) + 7, (coarse_y * 2) - 3, daily_seed ^ 0x9E37u);
+  float cloud_noise = (coarse_noise * 0.70f) + (detail_noise * 0.30f);
+  float texture = cloud_noise * texture_strength * (0.85f + (0.15f * center_band));
+  factor = prv_clampf(factor + texture, 0.0f, 1.0f);
+
+  if (daylight_strength > 0.0f) {
+    float dx = sample_x - bloom_x;
+    float dy = sample_y - bloom_y;
+    float dist_sq = (dx * dx) + (dy * dy);
+    if (dist_sq < bloom_radius_sq) {
+      float bloom = 1.0f - (dist_sq / bloom_radius_sq);
+      factor = prv_clampf(factor + (bloom * bloom_gain), 0.0f, 1.0f);
+    }
+  }
+
+  Rgb color;
+  color.r = prv_lerp_i16(palette.top.r, palette.bottom.r, factor);
+  color.g = prv_lerp_i16(palette.top.g, palette.bottom.g, factor);
+  color.b = prv_lerp_i16(palette.top.b, palette.bottom.b, factor);
+  return color;
+}
+
+static TextStyle prv_pick_text_style_for_row(Palette palette, GRect bounds, uint32_t now_ms,
+                                             const RenderProfile *profile, int16_t y_center) {
+  Rgb sample_l = prv_sample_gradient_color(palette, bounds, now_ms, profile, bounds.size.w * 0.28f, (float)y_center);
+  Rgb sample_c = prv_sample_gradient_color(palette, bounds, now_ms, profile, bounds.size.w * 0.50f, (float)y_center);
+  Rgb sample_r = prv_sample_gradient_color(palette, bounds, now_ms, profile, bounds.size.w * 0.72f, (float)y_center);
+
+  int16_t avg_luma = (prv_luma_itu601(sample_l) + prv_luma_itu601(sample_c) + prv_luma_itu601(sample_r)) / 3;
+  bool dark_pref = avg_luma > TEXT_BRIGHTNESS_THRESHOLD;
+
+  int16_t dark_margin = prv_text_contrast_margin(sample_l, true);
+  int16_t light_margin = prv_text_contrast_margin(sample_l, false);
+
+  int16_t dark_c = prv_text_contrast_margin(sample_c, true);
+  int16_t light_c = prv_text_contrast_margin(sample_c, false);
+  if (dark_c < dark_margin) dark_margin = dark_c;
+  if (light_c < light_margin) light_margin = light_c;
+
+  int16_t dark_r = prv_text_contrast_margin(sample_r, true);
+  int16_t light_r = prv_text_contrast_margin(sample_r, false);
+  if (dark_r < dark_margin) dark_margin = dark_r;
+  if (light_r < light_margin) light_margin = light_r;
+
+  TextStyle style;
+  if (s_state.text_override_mode == TEXT_MODE_BLACK_GLOW) {
+    style.color = GColorBlack;
+    style.glow = true;
+    style.glow_color = GColorWhite;
+    return style;
+  }
+  if (s_state.text_override_mode == TEXT_MODE_WHITE) {
+    style.color = GColorWhite;
+    style.glow = false;
+    style.glow_color = GColorBlack;
+    return style;
+  }
+  if (s_state.text_override_mode == TEXT_MODE_BLACK) {
+    style.color = GColorBlack;
+    style.glow = false;
+    style.glow_color = GColorWhite;
+    return style;
+  }
+
+  bool use_dark = dark_pref;
+  if ((use_dark && dark_margin < 84 && light_margin > dark_margin + 8) ||
+      (!use_dark && light_margin < 84 && dark_margin > light_margin + 8)) {
+    use_dark = dark_margin > light_margin;
+  }
+
+  style.color = use_dark ? GColorBlack : GColorWhite;
+  int16_t chosen_margin = use_dark ? dark_margin : light_margin;
+  style.glow = chosen_margin < 92;
+  style.glow_color = use_dark ? GColorWhite : GColorBlack;
+  return style;
+}
+
 static TextStyle prv_pick_text_style(Rgb sample_rgb) {
   TextStyle style;
   if (s_state.text_override_mode == TEXT_MODE_BLACK_GLOW) {
     style.color = GColorBlack;
     style.glow = true;
+    style.glow_color = GColorWhite;
     return style;
   }
 
-  style.color = prv_should_use_dark_foreground(sample_rgb) ? GColorBlack : GColorWhite;
+  bool dark = prv_should_use_dark_foreground(sample_rgb);
+  style.color = dark ? GColorBlack : GColorWhite;
   style.glow = false;
+  style.glow_color = dark ? GColorWhite : GColorBlack;
   return style;
 }
 
@@ -590,12 +885,17 @@ static GSize prv_text_size(const char *text, GFont font, int16_t width, int16_t 
                                                GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
 }
 
+static int16_t prv_line_height_for_font(GFont font) {
+  GSize sample = prv_text_size("Ag", font, 64, 64);
+  return sample.h > 0 ? sample.h : 14;
+}
+
 static void prv_draw_styled_text(GContext *ctx, const char *text, GFont font, TextStyle style,
                                  int16_t x, int16_t y, int16_t width, int16_t height,
                                  GTextAlignment alignment) {
   GRect rect = GRect(x, y, width, height);
   if (style.glow) {
-    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_context_set_text_color(ctx, style.glow_color);
     graphics_draw_text(ctx, text, font, GRect(rect.origin.x - 1, rect.origin.y, rect.size.w, rect.size.h),
                        GTextOverflowModeTrailingEllipsis, alignment, NULL);
     graphics_draw_text(ctx, text, font, GRect(rect.origin.x + 1, rect.origin.y, rect.size.w, rect.size.h),
@@ -810,19 +1110,30 @@ static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfi
   }
 
   int32_t motion_mode = prv_effective_motion_mode();
-  if (motion_mode == MOTION_MODE_OFF) {
-    return (float)prv_wrap_degrees_x100(base_angle_x100) / 100.0f;
+  float drift_scale = profile->drift_mult;
+  if (motion_mode == MOTION_MODE_CALM) {
+    drift_scale *= 0.35f;
+  } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+    drift_scale *= 1.45f;
   }
-
-  float drift_scale = profile->drift_mult * (motion_mode == MOTION_MODE_SUBTLE ? 0.35f : 1.0f);
   float ambient_drift = prv_wave_sine_ms(now_ms, AMBIENT_DRIFT_PERIOD_MS, 0) * AMBIENT_DRIFT_AMPLITUDE_DEG * drift_scale;
   float refresh_ease_drift = 0.0f;
   if (s_state.last_payload_received_ms != 0) {
     uint32_t since_payload = now_ms - s_state.last_payload_received_ms;
-    uint32_t boost_window_ms = (motion_mode == MOTION_MODE_SUBTLE) ? 2500 : REFRESH_DRIFT_BOOST_MS;
+    uint32_t boost_window_ms = REFRESH_DRIFT_BOOST_MS;
+    if (motion_mode == MOTION_MODE_CALM) {
+      boost_window_ms = 2500;
+    } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+      boost_window_ms = 6500;
+    }
     if (since_payload < boost_window_ms) {
       float ramp = 1.0f - ((float)since_payload / (float)boost_window_ms);
-      float boost_amount = (motion_mode == MOTION_MODE_SUBTLE) ? 0.45f : 1.2f;
+      float boost_amount = 1.2f;
+      if (motion_mode == MOTION_MODE_CALM) {
+        boost_amount = 0.45f;
+      } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+        boost_amount = 1.8f;
+      }
       refresh_ease_drift = prv_wave_sine_ms(now_ms, 3000, 450) * boost_amount * ramp * profile->drift_mult;
     }
   }
@@ -839,12 +1150,13 @@ static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfi
 
 static float prv_dynamic_dither_strength(uint32_t now_ms, const RenderProfile *profile) {
   int32_t motion_mode = prv_effective_motion_mode();
-  if (motion_mode == MOTION_MODE_OFF) {
-    return prv_clampf((DITHER_STRENGTH * 0.70f) * profile->dither_mult, 0.010f, 0.045f);
-  }
-
   float wave = (prv_wave_sine_ms(now_ms, 22000, 1700) + 1.0f) * 0.5f;
-  float variation_scale = (motion_mode == MOTION_MODE_SUBTLE) ? 0.45f : 1.0f;
+  float variation_scale = 1.0f;
+  if (motion_mode == MOTION_MODE_CALM) {
+    variation_scale = 0.45f;
+  } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+    variation_scale = 1.35f;
+  }
   float strength = DITHER_STRENGTH * (0.85f + (0.25f * wave * variation_scale));
   strength *= profile->dither_mult;
 
@@ -852,11 +1164,26 @@ static float prv_dynamic_dither_strength(uint32_t now_ms, const RenderProfile *p
     uint32_t since_payload = now_ms - s_state.last_payload_received_ms;
     if (since_payload < REFRESH_DRIFT_BOOST_MS) {
       float boost = 1.0f - ((float)since_payload / (float)REFRESH_DRIFT_BOOST_MS);
-      float boost_amount = (motion_mode == MOTION_MODE_SUBTLE) ? 0.15f : 0.35f;
+      float boost_amount = 0.35f;
+      if (motion_mode == MOTION_MODE_CALM) {
+        boost_amount = 0.15f;
+      } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+        boost_amount = 0.55f;
+      }
       strength *= 1.0f + (boost_amount * boost);
     }
   }
-  return prv_clampf(strength, 0.015f, 0.07f);
+  return prv_clampf(strength, 0.015f, 0.085f);
+}
+
+static float prv_event_moment_strength(uint32_t now_ms) {
+  if (s_state.event_moment_until_ms == 0 || now_ms >= s_state.event_moment_until_ms) {
+    return 0.0f;
+  }
+
+  float t = (float)(s_state.event_moment_until_ms - now_ms) / (float)EVENT_MOMENT_MS;
+  t = prv_clampf(t, 0.0f, 1.0f);
+  return t * t * (3.0f - (2.0f * t));
 }
 
 static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette, uint32_t now_ms,
@@ -866,6 +1193,7 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
   float angle = prv_effective_gradient_angle_deg(now_ms, profile);
   float altitude_deg = (float)s_state.altitude_deg_x100 / 100.0f;
   float dither_strength = prv_dynamic_dither_strength(now_ms, profile);
+  float event_moment = prv_event_moment_strength(now_ms);
   int16_t step = GRADIENT_STEP;
   if ((int32_t)width * (int32_t)height > profile->large_step_area_threshold) {
     step = profile->gradient_step_large;
@@ -897,20 +1225,23 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
   float bloom_radius_sq = bloom_radius * bloom_radius;
   float bloom_gain = 0.11f * daylight_strength * profile->bloom_gain_mult;
   bloom_gain *= 1.0f + (0.05f * bloom_variation);
+  bloom_gain *= 1.0f + (0.45f * event_moment);
 
   float horizon_center_t = prv_clampf(0.58f + (0.08f * (0.5f - altitude_normalized)), 0.44f, 0.70f);
   float horizon_target_t = prv_clampf(0.62f + (0.08f * (0.5f - altitude_normalized)), 0.48f, 0.74f);
   float horizon_half_width = 0.18f;
   float horizon_strength = (0.035f + (0.055f * phase_energy)) * (1.0f - (0.45f * daylight_strength));
   horizon_strength *= profile->gradient_widen_mult;
+  horizon_strength *= 1.0f + (0.35f * event_moment);
 
   int32_t motion_mode = prv_effective_motion_mode();
   float texture_strength = 0.012f + (0.016f * phase_energy);
-  if (motion_mode == MOTION_MODE_SUBTLE) {
+  if (motion_mode == MOTION_MODE_CALM) {
     texture_strength *= 0.65f;
-  } else if (motion_mode == MOTION_MODE_OFF) {
-    texture_strength *= 0.50f;
+  } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+    texture_strength *= 1.30f;
   }
+  texture_strength *= 1.0f + (0.18f * event_moment);
 
   for (int16_t y = 0; y < height; y += step) {
     float y_center_t = prv_clampf(((float)y + ((float)step * 0.5f)) / (float)height, 0.0f, 1.0f);
@@ -930,6 +1261,7 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
                           (0.12f * phase_energy) +
                           (0.08f * daylight_strength * phase_energy) +
                           (0.06f * center_band * phase_energy);
+      center_bias += 0.05f * event_moment;
       float factor = (raw_factor * (1.0f - center_bias)) + (smooth_factor * center_bias);
 
       if (center_band > 0.0f && phase_energy > 0.0f) {
@@ -1049,36 +1381,24 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
   GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
 
-  char location_text[96];
+  char location_text[48];
   location_text[0] = '\0';
+  if (s_state.show_location != 0) {
+    prv_resolve_city_name(location_text, sizeof(location_text));
+  }
 
-  if (s_state.show_location != 0 || s_state.show_altitude != 0) {
-    char city_text[48];
-    char alt_text[24];
-    city_text[0] = '\0';
-    alt_text[0] = '\0';
-
-    if (s_state.show_location != 0) {
-      prv_resolve_city_name(city_text, sizeof(city_text));
-    }
-
-    if (s_state.show_altitude != 0) {
-      prv_format_altitude_x100(s_state.altitude_deg_x100, alt_text, sizeof(alt_text));
-    }
-
-    if (s_state.show_location != 0 && s_state.show_altitude != 0) {
-      snprintf(location_text, sizeof(location_text), "%s / alt %s deg", city_text, alt_text);
-    } else if (s_state.show_location != 0) {
-      snprintf(location_text, sizeof(location_text), "%s", city_text);
-    } else if (s_state.show_altitude != 0) {
-      snprintf(location_text, sizeof(location_text), "alt %s deg", alt_text);
-    }
+  char altitude_text[32];
+  altitude_text[0] = '\0';
+  if (s_state.show_altitude != 0) {
+    char alt_value[24];
+    prv_format_altitude_x100(s_state.altitude_deg_x100, alt_value, sizeof(alt_value));
+    snprintf(altitude_text, sizeof(altitude_text), "alt %s deg", alt_value);
   }
 
   char weather_text[56];
   prv_format_weather_text(weather_text, sizeof(weather_text));
 
-  int16_t side_pad = prv_clamp_i16(bounds.size.w / 14, 6, 20);
+  int16_t side_pad = prv_clamp_i16(bounds.size.w / 18, 4, 16);
   int16_t top_bottom_pad = prv_clamp_i16(bounds.size.h / 12, 8, 26);
   int16_t content_w = bounds.size.w - (2 * side_pad);
   if (content_w < 20) {
@@ -1087,34 +1407,31 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   }
 
   GFont info_font = bounds.size.h < 200 ? s_info_font_small : s_info_font_large;
+  int16_t info_line_h = prv_line_height_for_font(info_font);
   int16_t line_gap_main = prv_clamp_i16(bounds.size.h / 36, 2, 8);
   int16_t line_gap_info = prv_clamp_i16(bounds.size.h / 48, 1, 6);
 
   GSize time_size = prv_text_size(time_text, time_font, content_w, bounds.size.h);
-  GSize location_size = GSize(0, 0);
-  GSize weather_size = GSize(0, 0);
   bool show_location_line = (location_text[0] != '\0');
+  bool show_altitude_line = (altitude_text[0] != '\0');
   bool show_weather_line = (weather_text[0] != '\0');
 
+  int16_t info_line_count = 0;
   if (show_location_line) {
-    location_size = prv_text_size(location_text, info_font, content_w, bounds.size.h);
+    info_line_count += 1;
+  }
+  if (show_altitude_line) {
+    info_line_count += 1;
   }
   if (show_weather_line) {
-    weather_size = prv_text_size(weather_text, info_font, content_w, bounds.size.h);
+    info_line_count += 1;
   }
 
   int16_t block_h = time_size.h;
-  if (show_location_line || show_weather_line) {
+  if (info_line_count > 0) {
     block_h += line_gap_main;
-  }
-  if (show_location_line) {
-    block_h += location_size.h;
-  }
-  if (show_location_line && show_weather_line) {
-    block_h += line_gap_info;
-  }
-  if (show_weather_line) {
-    block_h += weather_size.h;
+    block_h += (int16_t)(info_line_h * info_line_count);
+    block_h += (int16_t)(line_gap_info * (info_line_count - 1));
   }
 
   int16_t available_h = bounds.size.h - (2 * top_bottom_pad);
@@ -1122,17 +1439,10 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
     line_gap_main = 1;
     line_gap_info = 1;
     block_h = time_size.h;
-    if (show_location_line || show_weather_line) {
+    if (info_line_count > 0) {
       block_h += line_gap_main;
-    }
-    if (show_location_line) {
-      block_h += location_size.h;
-    }
-    if (show_location_line && show_weather_line) {
-      block_h += line_gap_info;
-    }
-    if (show_weather_line) {
-      block_h += weather_size.h;
+      block_h += (int16_t)(info_line_h * info_line_count);
+      block_h += (int16_t)(line_gap_info * (info_line_count - 1));
     }
   }
 
@@ -1142,38 +1452,45 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   }
 
   int16_t y_cursor = start_y;
-  float time_sample_t = prv_clampf(((float)y_cursor + ((float)time_size.h * 0.5f)) / (float)bounds.size.h, 0.0f, 1.0f);
-  Rgb time_sample = prv_interpolate_rgb(palette.top, palette.bottom, time_sample_t);
-  TextStyle time_style = prv_pick_text_style(time_sample);
+  int16_t time_center_y = y_cursor + (time_size.h / 2);
+  TextStyle time_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, time_center_y);
   prv_draw_styled_text(ctx, time_text, time_font, time_style,
                        side_pad, y_cursor, content_w, time_size.h + 2, GTextAlignmentCenter);
   y_cursor += time_size.h;
 
-  if (show_location_line || show_weather_line) {
+  if (info_line_count > 0) {
     y_cursor += line_gap_main;
   }
 
   if (show_location_line) {
-    float location_sample_t = prv_clampf(((float)y_cursor + ((float)location_size.h * 0.5f)) / (float)bounds.size.h,
-                                         0.0f, 1.0f);
-    Rgb location_sample = prv_interpolate_rgb(palette.top, palette.bottom, location_sample_t);
-    TextStyle location_style = prv_pick_text_style(location_sample);
+    int16_t location_center_y = y_cursor + (info_line_h / 2);
+    TextStyle location_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, location_center_y);
     prv_draw_styled_text(ctx, location_text, info_font, location_style,
-                         side_pad, y_cursor, content_w, location_size.h + 2, GTextAlignmentCenter);
-    y_cursor += location_size.h;
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    y_cursor += info_line_h;
   }
 
-  if (show_location_line && show_weather_line) {
+  if (show_location_line && (show_altitude_line || show_weather_line)) {
+    y_cursor += line_gap_info;
+  }
+
+  if (show_altitude_line) {
+    int16_t altitude_center_y = y_cursor + (info_line_h / 2);
+    TextStyle altitude_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, altitude_center_y);
+    prv_draw_styled_text(ctx, altitude_text, info_font, altitude_style,
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    y_cursor += info_line_h;
+  }
+
+  if ((show_location_line || show_altitude_line) && show_weather_line) {
     y_cursor += line_gap_info;
   }
 
   if (show_weather_line) {
-    float weather_sample_t = prv_clampf(((float)y_cursor + ((float)weather_size.h * 0.5f)) / (float)bounds.size.h,
-                                        0.0f, 1.0f);
-    Rgb weather_sample = prv_interpolate_rgb(palette.top, palette.bottom, weather_sample_t);
-    TextStyle weather_style = prv_pick_text_style(weather_sample);
+    int16_t weather_center_y = y_cursor + (info_line_h / 2);
+    TextStyle weather_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, weather_center_y);
     prv_draw_styled_text(ctx, weather_text, info_font, weather_style,
-                         side_pad, y_cursor, content_w, weather_size.h + 2, GTextAlignmentCenter);
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
   }
 
   if (s_state.dev_mode_enabled && s_state.dev_show_debug_overlay) {
@@ -1294,7 +1611,7 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
 
   Tuple *motion_mode = dict_find(iter, MESSAGE_KEY_MotionMode);
   if (motion_mode) {
-    s_state.motion_mode = prv_clamp_i32(prv_tuple_to_i32(motion_mode), MOTION_MODE_HYBRID, MOTION_MODE_OFF);
+    s_state.motion_mode = prv_clamp_i32(prv_tuple_to_i32(motion_mode), MOTION_MODE_HYBRID, MOTION_MODE_DYNAMIC);
     loading_changed = true;
     motion_changed = true;
   }
@@ -1461,9 +1778,18 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   bool was_ready = s_state.had_payload_once;
 
   s_state.azimuth_deg_x100 = prv_tuple_to_i32(az);
+  int32_t previous_altitude_x100 = s_state.altitude_deg_x100;
   s_state.altitude_deg_x100 = prv_tuple_to_i32(alt);
+  int32_t next_altitude_x100 = s_state.altitude_deg_x100;
+  bool crossed_horizon = (previous_altitude_x100 < 0 && next_altitude_x100 >= 0) ||
+                         (previous_altitude_x100 >= 0 && next_altitude_x100 < 0);
+  bool crossed_blue_hour = (previous_altitude_x100 < -600 && next_altitude_x100 >= -600) ||
+                           (previous_altitude_x100 >= -600 && next_altitude_x100 < -600);
+  if (crossed_horizon || crossed_blue_hour) {
+    s_state.event_moment_until_ms = now_ms + EVENT_MOMENT_MS;
+  }
   int32_t next_angle_x100 = prv_wrap_degrees_x100(prv_tuple_to_i32(angle));
-  if (!was_ready || prv_effective_motion_mode() == MOTION_MODE_OFF) {
+  if (!was_ready) {
     s_state.gradient_angle_deg_x100 = next_angle_x100;
     s_state.previous_gradient_angle_deg_x100 = next_angle_x100;
     s_state.target_gradient_angle_deg_x100 = next_angle_x100;
