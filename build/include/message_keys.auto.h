@@ -26,6 +26,7 @@ extern uint32_t MESSAGE_KEY_DevShowDebugOverlay;
 extern uint32_t MESSAGE_KEY_DevSweepCycleSeconds;
 extern uint32_t MESSAGE_KEY_DevSweepEnabled;
 extern uint32_t MESSAGE_KEY_GradientAngleDegX100;
+extern uint32_t MESSAGE_KEY_GradientSpread;
 extern uint32_t MESSAGE_KEY_LatitudeE6;
 extern uint32_t MESSAGE_KEY_LongitudeE6;
 extern uint32_t MESSAGE_KEY_MotionMode;

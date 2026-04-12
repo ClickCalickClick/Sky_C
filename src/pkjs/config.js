@@ -106,7 +106,31 @@ module.exports = [
     items: [
       {
         type: "heading",
-        defaultValue: "Motion & Battery"
+        defaultValue: "Gradient & Motion"
+      },
+      {
+        type: "select",
+        messageKey: "GradientSpread",
+        label: "Gradient spread",
+        defaultValue: "0",
+        options: [
+          {
+            label: "Standard (default)",
+            value: "0"
+          },
+          {
+            label: "Compact (Closer colors)",
+            value: "1"
+          },
+          {
+            label: "Wide (Stretched)",
+            value: "2"
+          },
+          {
+            label: "Extra wide",
+            value: "3"
+          }
+        ]
       },
       {
         type: "select",

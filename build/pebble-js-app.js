@@ -282,6 +282,7 @@
 	    var defaults = {
 	        TextOverrideMode: "0",
 	        MotionMode: "0",
+	        GradientSpread: "0",
 	        BatterySaveMode: false,
 	        TimeSizeBasalt: "1",
 	        TimeSizeChalk: "1",
@@ -453,6 +454,7 @@
 	    return {
 	        TextOverrideMode: clamp(parseNumber(settings.TextOverrideMode, 0) | 0, 0, 3),
 	        MotionMode: clamp(parseNumber(settings.MotionMode, 0) | 0, 0, 2),
+	        GradientSpread: clamp(parseNumber(settings.GradientSpread, 0) | 0, 0, 3),
 	        BatterySaveMode: toBoolInt(settings.BatterySaveMode),
 	        TimeSizeBasalt: clamp(parseNumber(settings.TimeSizeBasalt, 1) | 0, 0, 2),
 	        TimeSizeChalk: clamp(parseNumber(settings.TimeSizeChalk, 1) | 0, 0, 2),
@@ -1412,7 +1414,7 @@
 /* 6 */
 /***/ (function(module, exports) {
 
-	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10011,"CityName":10042,"ComputedAtEpoch":10008,"CustomLatitudeE6":10029,"CustomLocationEnabled":10028,"CustomLongitudeE6":10030,"DebugBenchmark":10041,"DevDateTime":10034,"DevLatitude":10032,"DevLatitudeE6":10035,"DevLongitude":10033,"DevLongitudeE6":10036,"DevModeEnabled":10031,"DevReferenceEpoch":10037,"DevShowDebugOverlay":10040,"DevSweepCycleSeconds":10039,"DevSweepEnabled":10038,"GradientAngleDegX100":10007,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"ProgressPercent":10001,"RefreshRequest":10044,"ReloadFaceToken":10043,"ShowAltitude":10017,"ShowLocation":10016,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeSizeBasalt":10012,"TimeSizeChalk":10013,"TimeSizeEmery":10014,"TimeSizeGabbro":10015,"WeatherCloudCover":10023,"WeatherCode":10024,"WeatherDetailLevel":10020,"WeatherEnabled":10018,"WeatherPrecipX100":10026,"WeatherStatus":10021,"WeatherTempX10":10022,"WeatherUnitFahrenheit":10019,"WeatherUpdatedEpoch":10027,"WeatherWindX10":10025}
+	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10043,"ComputedAtEpoch":10008,"CustomLatitudeE6":10030,"CustomLocationEnabled":10029,"CustomLongitudeE6":10031,"DebugBenchmark":10042,"DevDateTime":10035,"DevLatitude":10033,"DevLatitudeE6":10036,"DevLongitude":10034,"DevLongitudeE6":10037,"DevModeEnabled":10032,"DevReferenceEpoch":10038,"DevShowDebugOverlay":10041,"DevSweepCycleSeconds":10040,"DevSweepEnabled":10039,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"ProgressPercent":10001,"RefreshRequest":10045,"ReloadFaceToken":10044,"ShowAltitude":10018,"ShowLocation":10017,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10024,"WeatherCode":10025,"WeatherDetailLevel":10021,"WeatherEnabled":10019,"WeatherPrecipX100":10027,"WeatherStatus":10022,"WeatherTempX10":10023,"WeatherUnitFahrenheit":10020,"WeatherUpdatedEpoch":10028,"WeatherWindX10":10026}
 
 /***/ }),
 /* 7 */
@@ -1526,7 +1528,31 @@
 	    items: [
 	      {
 	        type: "heading",
-	        defaultValue: "Motion & Battery"
+	        defaultValue: "Gradient & Motion"
+	      },
+	      {
+	        type: "select",
+	        messageKey: "GradientSpread",
+	        label: "Gradient spread",
+	        defaultValue: "0",
+	        options: [
+	          {
+	            label: "Standard (default)",
+	            value: "0"
+	          },
+	          {
+	            label: "Compact (Closer colors)",
+	            value: "1"
+	          },
+	          {
+	            label: "Wide (Stretched)",
+	            value: "2"
+	          },
+	          {
+	            label: "Extra wide",
+	            value: "3"
+	          }
+	        ]
 	      },
 	      {
 	        type: "select",

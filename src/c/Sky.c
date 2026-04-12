@@ -97,6 +97,7 @@ typedef struct {
   int32_t computed_at_epoch;
   int32_t text_override_mode;
   int32_t motion_mode;
+  int32_t gradient_spread;
   int32_t battery_save_mode;
   int32_t time_size_basalt;
   int32_t time_size_chalk;
@@ -716,6 +717,14 @@ static Rgb prv_sample_gradient_color(Palette palette, GRect bounds, uint32_t now
   float denom = max_projection > 0.000001f ? max_projection : 0.000001f;
   float projection_scale = 0.5f / denom;
 
+  if (s_state.gradient_spread == 1) {
+    projection_scale *= 1.35f;
+  } else if (s_state.gradient_spread == 2) {
+    projection_scale *= 0.65f;
+  } else if (s_state.gradient_spread == 3) {
+    projection_scale *= 0.40f;
+  }
+
   float daylight_strength = prv_clampf((altitude_deg - 25.0f) / 30.0f, 0.0f, 1.0f);
   float altitude_normalized = prv_clampf((altitude_deg + 5.0f) / 70.0f, 0.0f, 1.0f);
   float phase_energy = prv_clampf((altitude_deg + 8.0f) / 30.0f, 0.0f, 1.0f);
@@ -1208,6 +1217,14 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
   float denom = max_projection > 0.000001f ? max_projection : 0.000001f;
   float projection_scale = 0.5f / denom;
 
+  if (s_state.gradient_spread == 1) {
+    projection_scale *= 1.35f;
+  } else if (s_state.gradient_spread == 2) {
+    projection_scale *= 0.65f;
+  } else if (s_state.gradient_spread == 3) {
+    projection_scale *= 0.40f;
+  }
+
   float daylight_strength = prv_clampf((altitude_deg - 25.0f) / 30.0f, 0.0f, 1.0f);
   int32_t sun_trig = (int32_t)(((float)s_state.azimuth_deg_x100 / 100.0f) * (float)TRIG_MAX_ANGLE / 360.0f);
   float sun_vx = sin_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
@@ -1612,6 +1629,13 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   Tuple *motion_mode = dict_find(iter, MESSAGE_KEY_MotionMode);
   if (motion_mode) {
     s_state.motion_mode = prv_clamp_i32(prv_tuple_to_i32(motion_mode), MOTION_MODE_HYBRID, MOTION_MODE_DYNAMIC);
+    loading_changed = true;
+    motion_changed = true;
+  }
+
+  Tuple *gradient_spread = dict_find(iter, MESSAGE_KEY_GradientSpread);
+  if (gradient_spread) {
+    s_state.gradient_spread = prv_clamp_i32(prv_tuple_to_i32(gradient_spread), 0, 3);
     loading_changed = true;
     motion_changed = true;
   }

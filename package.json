@@ -34,6 +34,7 @@
       "ComputedAtEpoch",
       "TextOverrideMode",
       "MotionMode",
+      "GradientSpread",
       "BatterySaveMode",
       "TimeSizeBasalt",
       "TimeSizeChalk",
