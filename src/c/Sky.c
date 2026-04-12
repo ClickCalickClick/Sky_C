@@ -17,7 +17,7 @@
 #define TEXT_MODE_BLACK 2
 #define TEXT_MODE_BLACK_GLOW 3
 
-#define LOADING_TIMEOUT_MS 8000
+#define LOADING_TIMEOUT_MS 15000
 #define LOADING_STALE_HINT_MS 3500
 #define LOADING_STILL_WORKING_MS 6000
 #define LOADING_TIMER_INTERVAL_MS 125
@@ -103,7 +103,7 @@ static AppState s_state = {
   .latitude_e6 = 41878100,
   .longitude_e6 = -87629800,
   .azimuth_deg_x100 = 18000,
-  .altitude_deg_x100 = -200,
+  .altitude_deg_x100 = -1800,
   .gradient_angle_deg_x100 = 0,
   .computed_at_epoch = 0,
   .text_override_mode = TEXT_MODE_AUTO,

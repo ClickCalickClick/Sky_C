@@ -148,7 +148,7 @@
 	    { name: "Milwaukee", lat: 43.0389, lon: -87.9065 }
 	];
 	
-	var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
+	var clay = new Clay(clayConfig);
 	var retryTimer = null;
 	var autoUpdateTimer = null;
 	var settings = loadSettings();
@@ -680,14 +680,24 @@
 	        sendStatus(STATUS.grabbingLocation, 34);
 	        sendStatus(STATUS.calculatingSun, 48);
 	        var payload = computeSolarPayload(location.lat, location.lon, location.source, null);
+	
+	        // Ship gradients immediately after location resolve; city label can refine a moment later.
+	        payload.CityName = location.source === SOURCE.chicago ? "Chicago" : nearestKnownCityName(location.lat, location.lon);
+	        console.log("[solar] initial payload source=" + location.source + " city=" + payload.CityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
+	        cacheSolarPayload(payload);
+	        sendStatus(STATUS.sendingPayload, 82);
+	        sendAppMessage(payload, "solar-payload-initial");
+	        sendSettingsToWatch();
+	        sendStatus(STATUS.complete, 100);
+	
 	        resolveCityName(location, function(cityName) {
+	            if (!cityName || cityName === payload.CityName) {
+	                return;
+	            }
 	            payload.CityName = cityName;
-	            console.log("[solar] computed source=" + location.source + " city=" + cityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
+	            console.log("[solar] refined city source=" + location.source + " city=" + cityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
 	            cacheSolarPayload(payload);
-	            sendStatus(STATUS.sendingPayload, 88);
-	            sendAppMessage(payload, "solar-payload");
-	            sendSettingsToWatch();
-	            sendStatus(STATUS.complete, 100);
+	            sendAppMessage(payload, "solar-city-update");
 	        });
 	    });
 	}
@@ -701,11 +711,32 @@
 	}
 	
 	function applyClaySettingsFromResponse(response) {
-	    var parsed = clay.getSettings(response) || {};
+	    var parsed;
+	
+	    try {
+	        parsed = clay.getSettings(response) || {};
+	    } catch (error) {
+	        console.log("[solar] failed to parse Clay response: " + (error && error.message ? error.message : error));
+	        return;
+	    }
+	
 	    clay.setSettings(parsed);
 	    saveSettings(parsed);
 	    sendSettingsToWatch();
 	    requestAndSendSolar("settings-updated");
+	}
+	
+	function syncSettingsFromClayStorage() {
+	    var parsed;
+	
+	    try {
+	        parsed = clay.getSettings() || {};
+	    } catch (error) {
+	        console.log("[solar] failed to read Clay storage: " + (error && error.message ? error.message : error));
+	        return;
+	    }
+	
+	    saveSettings(parsed);
 	}
 	
 	function readRefreshRequest(payload) {
@@ -723,8 +754,9 @@
 	
 	Pebble.addEventListener("ready", function() {
 	    console.log("[solar] pkjs ready");
+	    syncSettingsFromClayStorage();
 	    sendSettingsToWatch();
-	    sendCachedSolarIfAvailable();
+	    // Prefer fresh phone location on launch; fallback to Chicago happens in resolveLocation.
 	    requestAndSendSolar("startup");
 	    startSchedulers();
 	});
@@ -734,10 +766,6 @@
 	        console.log("[solar] refresh requested by watch");
 	        requestAndSendSolar("watch-request");
 	    }
-	});
-	
-	Pebble.addEventListener("showConfiguration", function() {
-	    Pebble.openURL(clay.generateUrl());
 	});
 	
 	Pebble.addEventListener("webviewclosed", function(event) {
