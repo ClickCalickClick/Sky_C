@@ -358,7 +358,7 @@ function normalizeStyleSettings() {
     return {
         TextOverrideMode: clamp(parseNumber(settings.TextOverrideMode, 0) | 0, 0, 3),
         MotionMode: clamp(parseNumber(settings.MotionMode, 0) | 0, 0, 2),
-        GradientSpread: clamp(parseNumber(settings.GradientSpread, 0) | 0, 0, 3),
+        GradientSpread: clamp(parseNumber(settings.GradientSpread, 0) | 0, 0, 4),
         BatterySaveMode: toBoolInt(settings.BatterySaveMode),
         TimeSizeBasalt: clamp(parseNumber(settings.TimeSizeBasalt, 1) | 0, 0, 2),
         TimeSizeChalk: clamp(parseNumber(settings.TimeSizeChalk, 1) | 0, 0, 2),

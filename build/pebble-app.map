@@ -1607,15 +1607,15 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
  .text.prv_apply_minimum_palette_separation
                 0x00001660      0x2fc src/c/Sky.c.33.o
  .text.prv_on_message_received
-                0x0000195c      0x6f0 src/c/Sky.c.33.o
+                0x0000195c      0x6f8 src/c/Sky.c.33.o
  .text.prv_effective_gradient_angle_deg
-                0x0000204c      0x24c src/c/Sky.c.33.o
+                0x00002054      0x24c src/c/Sky.c.33.o
  .text.prv_sample_gradient_color.isra.0
-                0x00002298      0x8f8 src/c/Sky.c.33.o
+                0x000022a0      0x908 src/c/Sky.c.33.o
  .text.prv_pick_text_style_for_row.isra.0
-                0x00002b90      0x1e8 src/c/Sky.c.33.o
+                0x00002ba8      0x1e8 src/c/Sky.c.33.o
  .text.prv_draw_face.isra.0
-                0x00002d78     0x1760 src/c/Sky.c.33.o
+                0x00002d90     0x1748 src/c/Sky.c.33.o
  .text.prv_canvas_update_proc
                 0x000044d8      0x368 src/c/Sky.c.33.o
  .text.startup.main
@@ -2126,9 +2126,9 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
  .debug_abbrev  0x000006a9       0x4a src/message_keys.auto.c.33.o
 
 .debug_loclists
-                0x00000000     0x664d
+                0x00000000     0x672d
  .debug_loclists
-                0x00000000     0x664d src/c/Sky.c.33.o
+                0x00000000     0x672d src/c/Sky.c.33.o
 
 .debug_aranges  0x00000000      0x180
  .debug_aranges
@@ -2141,15 +2141,15 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
                 0x00000168       0x18 src/message_keys.auto.c.33.o
 
 .debug_rnglists
-                0x00000000      0xaa8
+                0x00000000      0xab6
  .debug_rnglists
-                0x00000000      0xaa8 src/c/Sky.c.33.o
+                0x00000000      0xab6 src/c/Sky.c.33.o
 
-.debug_line     0x00000000     0x4a45
- .debug_line    0x00000000     0x46de src/c/Sky.c.33.o
- .debug_line    0x000046de      0x1cf basalt/appinfo.auto.c.33.o
- .debug_line    0x000048ad       0x3f basalt/src/resource_ids.auto.c.33.o
- .debug_line    0x000048ec      0x159 src/message_keys.auto.c.33.o
+.debug_line     0x00000000     0x4a37
+ .debug_line    0x00000000     0x46d0 src/c/Sky.c.33.o
+ .debug_line    0x000046d0      0x1cf basalt/appinfo.auto.c.33.o
+ .debug_line    0x0000489f       0x3f basalt/src/resource_ids.auto.c.33.o
+ .debug_line    0x000048de      0x159 src/message_keys.auto.c.33.o
 
 .debug_str      0x00000000     0x27f3
  .debug_str     0x00000000     0x27f3 src/c/Sky.c.33.o

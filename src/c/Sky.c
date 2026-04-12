@@ -723,6 +723,8 @@ static Rgb prv_sample_gradient_color(Palette palette, GRect bounds, uint32_t now
     projection_scale *= 0.65f;
   } else if (s_state.gradient_spread == 3) {
     projection_scale *= 0.40f;
+  } else if (s_state.gradient_spread == 4) {
+    projection_scale *= 2.05f;
   }
 
   float daylight_strength = prv_clampf((altitude_deg - 25.0f) / 30.0f, 0.0f, 1.0f);
@@ -1221,6 +1223,8 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
     projection_scale *= 1.35f;
   } else if (s_state.gradient_spread == 2) {
     projection_scale *= 0.65f;
+  } else if (s_state.gradient_spread == 4) {
+    projection_scale *= 2.05f;
   } else if (s_state.gradient_spread == 3) {
     projection_scale *= 0.40f;
   }
@@ -1635,7 +1639,7 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
 
   Tuple *gradient_spread = dict_find(iter, MESSAGE_KEY_GradientSpread);
   if (gradient_spread) {
-    s_state.gradient_spread = prv_clamp_i32(prv_tuple_to_i32(gradient_spread), 0, 3);
+    s_state.gradient_spread = prv_clamp_i32(prv_tuple_to_i32(gradient_spread), 0, 4);
     loading_changed = true;
     motion_changed = true;
   }

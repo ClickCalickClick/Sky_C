@@ -129,6 +129,10 @@ module.exports = [
           {
             label: "Extra wide",
             value: "3"
+          },
+          {
+            label: "Ultra compact (Very close)",
+            value: "4"
           }
         ]
       },
