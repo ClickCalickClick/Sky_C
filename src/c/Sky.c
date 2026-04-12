@@ -43,6 +43,10 @@
 #define GRADIENT_STEP 2
 #define DITHER_STRENGTH 0.03f
 #define TEXT_BRIGHTNESS_THRESHOLD 145
+#define MIN_LUMA_DELTA_BASE 14
+#define MIN_LUMA_DELTA_SHOULDER 30
+#define MIN_CHROMA_DELTA_BASE 44
+#define MIN_CHROMA_DELTA_SHOULDER 94
 
 typedef struct {
   int16_t r;
@@ -359,6 +363,56 @@ static int16_t prv_lerp_i16(int16_t start, int16_t end, float factor) {
   return (int16_t)prv_round_i32((float)start + ((float)(end - start) * factor));
 }
 
+static uint16_t prv_daily_variation_seed(void) {
+  int32_t epoch = s_state.computed_at_epoch;
+  if (epoch <= 0) {
+    epoch = (int32_t)(time(NULL));
+  }
+
+  int32_t day_index = epoch / 86400;
+  int32_t loc_mix = (s_state.latitude_e6 >> 12) ^ (s_state.longitude_e6 >> 11);
+  uint32_t seed = (uint32_t)day_index;
+  seed ^= (uint32_t)(loc_mix * 2654435761u);
+  seed ^= (seed >> 16);
+  return (uint16_t)(seed & 0xFFFF);
+}
+
+static float prv_noise_2d(int32_t x, int32_t y, uint16_t seed) {
+  uint32_t n = (uint32_t)(x * 374761393u);
+  n += (uint32_t)(y * 668265263u);
+  n += ((uint32_t)seed * 2246822519u);
+  n = (n ^ (n >> 13)) * 1274126177u;
+  n ^= (n >> 16);
+  return ((float)(n & 1023) / 511.5f) - 1.0f;
+}
+
+static int16_t prv_channel_delta_abs(Rgb a, Rgb b) {
+  return (int16_t)(prv_absf((float)a.r - (float)b.r) +
+                   prv_absf((float)a.g - (float)b.g) +
+                   prv_absf((float)a.b - (float)b.b));
+}
+
+static int16_t prv_luma_itu601(Rgb color) {
+  return (int16_t)((color.r * 299 + color.g * 587 + color.b * 114) / 1000);
+}
+
+static void prv_expand_channel_pair_toward_delta(int16_t *a, int16_t *b, int16_t target_delta) {
+  int16_t current_delta = (int16_t)prv_absf((float)(*b - *a));
+  if (current_delta >= target_delta) {
+    return;
+  }
+
+  int16_t sign = (*b >= *a) ? 1 : -1;
+  float midpoint = ((float)*a + (float)*b) * 0.5f;
+  float half = ((float)target_delta) * 0.5f;
+
+  int16_t next_a = prv_clamp_i16(prv_round_i32(midpoint - (half * sign)), 0, 255);
+  int16_t next_b = prv_clamp_i16(prv_round_i32(midpoint + (half * sign)), 0, 255);
+
+  *a = next_a;
+  *b = next_b;
+}
+
 static Rgb prv_interpolate_rgb(Rgb a, Rgb b, float t) {
   Rgb out;
   out.r = prv_lerp_i16(a.r, b.r, t);
@@ -406,6 +460,50 @@ static Palette prv_enhance_daylight_palette(Palette base, float altitude_deg, co
 #endif
 }
 
+static Palette prv_apply_minimum_palette_separation(Palette base, float altitude_deg,
+                                                    const RenderProfile *profile) {
+#ifdef PBL_COLOR
+  float phase_energy = prv_clampf((altitude_deg + 6.0f) / 28.0f, 0.0f, 1.0f);
+  int16_t top_luma = prv_luma_itu601(base.top);
+  int16_t bottom_luma = prv_luma_itu601(base.bottom);
+  int16_t luma_delta = (int16_t)prv_absf((float)(bottom_luma - top_luma));
+  int16_t chroma_delta = prv_channel_delta_abs(base.top, base.bottom);
+
+  bool shoulder_phase = (altitude_deg >= -2.0f && altitude_deg <= 18.0f);
+  int16_t min_luma_delta = shoulder_phase
+    ? MIN_LUMA_DELTA_SHOULDER
+    : (int16_t)prv_round_i32((float)MIN_LUMA_DELTA_BASE + (6.0f * phase_energy));
+  int16_t min_chroma_delta = shoulder_phase
+    ? MIN_CHROMA_DELTA_SHOULDER
+    : (int16_t)prv_round_i32((float)MIN_CHROMA_DELTA_BASE + (20.0f * phase_energy));
+
+  float luma_scale = (luma_delta > 0) ? ((float)min_luma_delta / (float)luma_delta) : 2.0f;
+  float chroma_scale = (chroma_delta > 0) ? ((float)min_chroma_delta / (float)chroma_delta) : 2.0f;
+  float required_scale = luma_scale > chroma_scale ? luma_scale : chroma_scale;
+
+  if (required_scale > 1.0f) {
+    float cap = (1.20f + (0.35f * phase_energy)) * profile->gradient_widen_mult;
+    required_scale = prv_clampf(required_scale, 1.0f, cap);
+    base = prv_widen_palette_contrast(base, required_scale);
+  }
+
+  // If clipping still leaves colors too close, force a gentle channel spread.
+  int16_t post_chroma = prv_channel_delta_abs(base.top, base.bottom);
+  if (post_chroma < min_chroma_delta) {
+    int16_t per_channel_target = min_chroma_delta / 3;
+    prv_expand_channel_pair_toward_delta(&base.top.r, &base.bottom.r, per_channel_target);
+    prv_expand_channel_pair_toward_delta(&base.top.g, &base.bottom.g, per_channel_target);
+    prv_expand_channel_pair_toward_delta(&base.top.b, &base.bottom.b, per_channel_target);
+  }
+
+  return base;
+#else
+  (void)altitude_deg;
+  (void)profile;
+  return base;
+#endif
+}
+
 static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile *profile) {
   Palette out;
   const int band_count = (int)(sizeof(s_atmosphere) / sizeof(s_atmosphere[0]));
@@ -413,7 +511,8 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
   if (altitude_deg <= s_atmosphere[0].altitude) {
     out.top = s_atmosphere[0].top;
     out.bottom = s_atmosphere[0].bottom;
-    return prv_enhance_daylight_palette(out, altitude_deg, profile);
+    out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+    return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
   }
 
   const AtmosphereBand *max_band = &s_atmosphere[band_count - 1];
@@ -423,7 +522,8 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
     out.top = max_band->top;
     out.bottom = max_band->bottom;
     out = prv_widen_palette_contrast(out, contrast_scale);
-    return prv_enhance_daylight_palette(out, altitude_deg, profile);
+    out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+    return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
   }
 
   for (int i = 0; i < band_count - 1; i++) {
@@ -434,13 +534,15 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
       float t = (altitude_deg - (float)low->altitude) / (range <= 0.0f ? 1.0f : range);
       out.top = prv_interpolate_rgb(low->top, high->top, t);
       out.bottom = prv_interpolate_rgb(low->bottom, high->bottom, t);
-      return prv_enhance_daylight_palette(out, altitude_deg, profile);
+      out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+      return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
     }
   }
 
   out.top = s_atmosphere[0].top;
   out.bottom = s_atmosphere[0].bottom;
-  return prv_enhance_daylight_palette(out, altitude_deg, profile);
+  out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+  return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
 }
 
 static float prv_dither_offset(int16_t block_x, int16_t block_y, float amount) {
@@ -784,24 +886,76 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
   float sun_vy = -cos_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
   float min_dim = width < height ? width : height;
   float altitude_normalized = prv_clampf((altitude_deg + 5.0f) / 70.0f, 0.0f, 1.0f);
+  float phase_energy = prv_clampf((altitude_deg + 8.0f) / 30.0f, 0.0f, 1.0f);
+  uint16_t daily_seed = prv_daily_variation_seed();
   float bloom_offset = (1.0f - altitude_normalized) * (min_dim * 0.30f);
   float bloom_x = cx + (sun_vx * bloom_offset);
   float bloom_y = cy + (sun_vy * bloom_offset);
+  float bloom_variation = ((float)(daily_seed & 31) - 15.0f) / 15.0f;
   float bloom_radius = min_dim * (0.18f + (0.08f * daylight_strength * profile->bloom_radius_mult));
+  bloom_radius *= 1.0f + (0.02f * bloom_variation);
   float bloom_radius_sq = bloom_radius * bloom_radius;
   float bloom_gain = 0.11f * daylight_strength * profile->bloom_gain_mult;
+  bloom_gain *= 1.0f + (0.05f * bloom_variation);
+
+  float horizon_center_t = prv_clampf(0.58f + (0.08f * (0.5f - altitude_normalized)), 0.44f, 0.70f);
+  float horizon_target_t = prv_clampf(0.62f + (0.08f * (0.5f - altitude_normalized)), 0.48f, 0.74f);
+  float horizon_half_width = 0.18f;
+  float horizon_strength = (0.035f + (0.055f * phase_energy)) * (1.0f - (0.45f * daylight_strength));
+  horizon_strength *= profile->gradient_widen_mult;
+
+  int32_t motion_mode = prv_effective_motion_mode();
+  float texture_strength = 0.012f + (0.016f * phase_energy);
+  if (motion_mode == MOTION_MODE_SUBTLE) {
+    texture_strength *= 0.65f;
+  } else if (motion_mode == MOTION_MODE_OFF) {
+    texture_strength *= 0.50f;
+  }
 
   for (int16_t y = 0; y < height; y += step) {
+    float y_center_t = prv_clampf(((float)y + ((float)step * 0.5f)) / (float)height, 0.0f, 1.0f);
+    float center_band = 1.0f - prv_clampf(prv_absf(y_center_t - 0.5f) / 0.34f, 0.0f, 1.0f);
+    float horizon_weight = 1.0f - prv_clampf(prv_absf(y_center_t - horizon_center_t) / horizon_half_width, 0.0f, 1.0f);
+    horizon_weight *= horizon_weight;
     float y_projection = ((float)y - cy) * vy;
     for (int16_t x = 0; x < width; x += step) {
       int16_t block_x = x / step;
       int16_t block_y = y / step;
       float projection = y_projection + (((float)x - cx) * vx);
-      float factor = prv_clampf((projection * projection_scale) + 0.5f, 0.0f, 1.0f);
+      float raw_factor = prv_clampf((projection * projection_scale) + 0.5f, 0.0f, 1.0f);
+
+      // Keep a visible tonal shift through the center third where the time sits.
+      float smooth_factor = raw_factor * raw_factor * (3.0f - (2.0f * raw_factor));
+      float center_bias = 0.06f +
+                          (0.12f * phase_energy) +
+                          (0.08f * daylight_strength * phase_energy) +
+                          (0.06f * center_band * phase_energy);
+      float factor = (raw_factor * (1.0f - center_bias)) + (smooth_factor * center_bias);
+
+      if (center_band > 0.0f && phase_energy > 0.0f) {
+        float center_boost = 1.0f + (0.16f * center_band * phase_energy * (0.6f + (0.4f * daylight_strength)));
+        factor = ((factor - 0.5f) * center_boost) + 0.5f;
+      }
+      factor = prv_clampf(factor, 0.0f, 1.0f);
+
       if (daylight_strength > 0.0f) {
         float widened = ((factor - 0.5f) * (1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult))) + 0.5f;
         factor = prv_clampf(widened, 0.0f, 1.0f);
       }
+
+      if (horizon_weight > 0.0f) {
+        float pull = prv_clampf(horizon_strength * horizon_weight, 0.0f, 0.22f);
+        factor = (factor * (1.0f - pull)) + (horizon_target_t * pull);
+      }
+
+      int32_t coarse_x = x / (step * 6);
+      int32_t coarse_y = y / (step * 6);
+      float coarse_noise = prv_noise_2d(coarse_x, coarse_y, daily_seed);
+      float detail_noise = prv_noise_2d((coarse_x * 2) + 7, (coarse_y * 2) - 3, daily_seed ^ 0x9E37u);
+      float cloud_noise = (coarse_noise * 0.70f) + (detail_noise * 0.30f);
+      float texture = cloud_noise * texture_strength * (0.85f + (0.15f * center_band));
+      factor = prv_clampf(factor + texture, 0.0f, 1.0f);
+
       factor = prv_clampf(factor + prv_dither_offset(block_x, block_y, dither_strength), 0.0f, 1.0f);
 
       if (daylight_strength > 0.0f) {
