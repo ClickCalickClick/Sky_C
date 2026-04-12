@@ -46,25 +46,17 @@ At runtime, the watchface shows:
 
 ## 2.3 Message Key Contract
 
-From appinfo, key IDs are:
+Message keys are generated from package.json at build time.
 
-- StatusCode: 10000
-- ProgressPercent: 10001
-- SourceCode: 10002
-- LatitudeE6: 10003
-- LongitudeE6: 10004
-- AzimuthDegX100: 10005
-- AltitudeDegX100: 10006
-- GradientAngleDegX100: 10007
-- ComputedAtEpoch: 10008
-- TextOverrideMode: 10009
-- CustomLocationEnabled: 10010
-- CustomLatitudeE6: 10011
-- CustomLongitudeE6: 10012
-- DebugBenchmark: 10013
-- CityName: 10014
-- ReloadFaceToken: 10015
-- RefreshRequest: 10016
+Core groups now include:
+
+- loading and refresh control: StatusCode, ProgressPercent, ReloadFaceToken, RefreshRequest
+- solar payload: SourceCode, LatitudeE6, LongitudeE6, AzimuthDegX100, AltitudeDegX100, GradientAngleDegX100, ComputedAtEpoch, CityName
+- text and motion settings: TextOverrideMode, MotionMode, BatterySaveMode
+- per-device time sizing: TimeSizeBasalt, TimeSizeChalk, TimeSizeEmery, TimeSizeGabbro
+- footer visibility: ShowLocation, ShowAltitude
+- weather settings and payload: WeatherEnabled, WeatherUnitFahrenheit, WeatherDetailLevel, WeatherStatus, WeatherTempX10, WeatherCloudCover, WeatherCode, WeatherWindX10, WeatherPrecipX100, WeatherUpdatedEpoch
+- location/dev controls: CustomLocationEnabled, CustomLatitudeE6, CustomLongitudeE6, DevModeEnabled, DevLatitudeE6, DevLongitudeE6, DevReferenceEpoch, DevSweepEnabled, DevSweepCycleSeconds, DevShowDebugOverlay, DebugBenchmark
 
 ## 3. End-To-End Runtime Flow
 
@@ -204,10 +196,28 @@ Uses localStorage keys:
 Settings include:
 
 - TextOverrideMode
+- MotionMode
+- BatterySaveMode
+- TimeSizeBasalt
+- TimeSizeChalk
+- TimeSizeEmery
+- TimeSizeGabbro
+- ShowLocation
+- ShowAltitude
+- WeatherEnabled
+- WeatherUnitFahrenheit
+- WeatherDetailLevel
 - ForceChicagoForTesting
 - CustomLocationEnabled
 - CustomLatitude
 - CustomLongitude
+- DevModeEnabled
+- DevLatitude
+- DevLongitude
+- DevDateTime
+- DevSweepEnabled
+- DevSweepCycleSeconds
+- DevShowDebugOverlay
 - DebugBenchmark
 
 ## 5.2 Location Source Selection

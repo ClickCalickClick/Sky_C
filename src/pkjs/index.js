@@ -5,7 +5,9 @@ var clayConfig = require("./config");
 var CHICAGO = { lat: 41.8781, lon: -87.6298 };
 var SETTINGS_KEY = "solar-gradient-settings-v1";
 var SOLAR_CACHE_KEY = "solar-gradient-solar-cache-v1";
+var WEATHER_CACHE_KEY = "solar-gradient-weather-cache-v1";
 var AUTO_UPDATE_MS = 10 * 60 * 1000;
+var WEATHER_UPDATE_MS = 45 * 60 * 1000;
 var RETRY_MS = 5 * 60 * 1000;
 var GEOCODE_TIMEOUT_MS = 4000;
 var STATUS_MESSAGES_ENABLED = true;
@@ -57,6 +59,7 @@ var retryTimer = null;
 var autoUpdateTimer = null;
 var settings = loadSettings();
 var reloadFaceToken = loadReloadToken();
+var weatherCache = loadWeatherCache();
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -167,6 +170,15 @@ function loadSettings() {
         TextOverrideMode: "0",
         MotionMode: "0",
         BatterySaveMode: false,
+        TimeSizeBasalt: "1",
+        TimeSizeChalk: "1",
+        TimeSizeEmery: "1",
+        TimeSizeGabbro: "1",
+        ShowLocation: true,
+        ShowAltitude: true,
+        WeatherEnabled: false,
+        WeatherUnitFahrenheit: true,
+        WeatherDetailLevel: "1",
         ForceChicagoForTesting: false,
         CustomLocationEnabled: false,
         CustomLatitude: String(CHICAGO.lat),
@@ -197,6 +209,34 @@ function loadSettings() {
 function saveSettings(nextSettings) {
     settings = mergeObjects(settings, nextSettings);
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function loadWeatherCache() {
+    var raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (!raw) {
+        return null;
+    }
+
+    try {
+        var parsed = JSON.parse(raw);
+        if (!parsed || !parsed.payload) {
+            return null;
+        }
+        return parsed;
+    } catch (error) {
+        return null;
+    }
+}
+
+function saveWeatherCache(payload, lat, lon, style) {
+    weatherCache = {
+        fetchedAtMs: Date.now(),
+        lat: lat,
+        lon: lon,
+        weatherUnitFahrenheit: style.WeatherUnitFahrenheit,
+        payload: payload
+    };
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(weatherCache));
 }
 
 function sendAppMessage(payload, label) {
@@ -236,6 +276,15 @@ function normalizeStyleSettings() {
         TextOverrideMode: clamp(parseNumber(settings.TextOverrideMode, 0) | 0, 0, 3),
         MotionMode: clamp(parseNumber(settings.MotionMode, 0) | 0, 0, 2),
         BatterySaveMode: toBoolInt(settings.BatterySaveMode),
+        TimeSizeBasalt: clamp(parseNumber(settings.TimeSizeBasalt, 1) | 0, 0, 2),
+        TimeSizeChalk: clamp(parseNumber(settings.TimeSizeChalk, 1) | 0, 0, 2),
+        TimeSizeEmery: clamp(parseNumber(settings.TimeSizeEmery, 1) | 0, 0, 2),
+        TimeSizeGabbro: clamp(parseNumber(settings.TimeSizeGabbro, 1) | 0, 0, 2),
+        ShowLocation: toBoolInt(settings.ShowLocation),
+        ShowAltitude: toBoolInt(settings.ShowAltitude),
+        WeatherEnabled: toBoolInt(settings.WeatherEnabled),
+        WeatherUnitFahrenheit: toBoolInt(settings.WeatherUnitFahrenheit),
+        WeatherDetailLevel: clamp(parseNumber(settings.WeatherDetailLevel, 1) | 0, 0, 2),
         CustomLocationEnabled: toBoolInt(settings.CustomLocationEnabled),
         CustomLatitudeE6: Math.round(parseNumber(settings.CustomLatitude, CHICAGO.lat) * 1000000),
         CustomLongitudeE6: Math.round(parseNumber(settings.CustomLongitude, CHICAGO.lon) * 1000000),
@@ -443,6 +492,115 @@ function requestJson(url, done) {
     }
 }
 
+function parseWeatherEpochSeconds(timeString) {
+    if (!timeString) {
+        return Math.floor(Date.now() / 1000);
+    }
+
+    var parsed = new Date(String(timeString));
+    if (!isFinite(parsed.getTime())) {
+        return Math.floor(Date.now() / 1000);
+    }
+    return Math.floor(parsed.getTime() / 1000);
+}
+
+function buildWeatherPayload(current, style) {
+    var temp = parseNumber(current.temperature_2m, 0);
+    var cloud = clamp(Math.round(parseNumber(current.cloud_cover, 0)), 0, 100);
+    var weatherCode = clamp(Math.round(parseNumber(current.weather_code, 0)), 0, 255);
+    var wind = Math.max(0, parseNumber(current.wind_speed_10m, 0));
+    var precip = Math.max(0, parseNumber(current.precipitation, 0));
+
+    return {
+        WeatherStatus: 0,
+        WeatherTempX10: Math.round(temp * 10),
+        WeatherCloudCover: cloud,
+        WeatherCode: weatherCode,
+        WeatherWindX10: Math.round(wind * 10),
+        WeatherPrecipX100: Math.round(precip * 100),
+        WeatherUpdatedEpoch: parseWeatherEpochSeconds(current.time),
+        WeatherUnitFahrenheit: style.WeatherUnitFahrenheit
+    };
+}
+
+function buildOpenMeteoUrl(lat, lon, style) {
+    var temperatureUnit = style.WeatherUnitFahrenheit === 1 ? "fahrenheit" : "celsius";
+    var windUnit = style.WeatherUnitFahrenheit === 1 ? "mph" : "kmh";
+    var precipitationUnit = style.WeatherUnitFahrenheit === 1 ? "inch" : "mm";
+
+    return "https://api.open-meteo.com/v1/forecast" +
+        "?latitude=" + encodeURIComponent(String(lat)) +
+        "&longitude=" + encodeURIComponent(String(lon)) +
+        "&current=temperature_2m,weather_code,cloud_cover,precipitation,wind_speed_10m" +
+        "&temperature_unit=" + temperatureUnit +
+        "&wind_speed_unit=" + windUnit +
+        "&precipitation_unit=" + precipitationUnit +
+        "&timezone=auto";
+}
+
+function shouldFetchWeather(style, reason, nowMs) {
+    if (style.WeatherEnabled !== 1 || style.WeatherDetailLevel === 0) {
+        return false;
+    }
+
+    if (reason === "startup" || reason === "watch-request" || reason === "settings-updated") {
+        return true;
+    }
+
+    if (style.BatterySaveMode === 1 && reason === "auto-refresh") {
+        return false;
+    }
+
+    if (!weatherCache || !weatherCache.fetchedAtMs) {
+        return true;
+    }
+
+    return (nowMs - weatherCache.fetchedAtMs) >= WEATHER_UPDATE_MS;
+}
+
+function requestAndSendWeather(location, reason, style) {
+    if (style.WeatherEnabled !== 1 || style.WeatherDetailLevel === 0) {
+        return;
+    }
+
+    var nowMs = Date.now();
+    if (weatherCache && weatherCache.weatherUnitFahrenheit !== undefined && weatherCache.weatherUnitFahrenheit !== style.WeatherUnitFahrenheit) {
+        weatherCache = null;
+    }
+
+    if (weatherCache && isFinite(weatherCache.lat) && isFinite(weatherCache.lon)) {
+        var movedKm = distanceKm(location.lat, location.lon, weatherCache.lat, weatherCache.lon);
+        if (movedKm >= 20) {
+            weatherCache = null;
+        }
+    }
+
+    if (!shouldFetchWeather(style, reason, nowMs)) {
+        if (weatherCache && weatherCache.payload) {
+            sendAppMessage(weatherCache.payload, "weather-cached");
+        }
+        return;
+    }
+
+    var url = buildOpenMeteoUrl(location.lat, location.lon, style);
+    requestJson(url, function(json, errorTag) {
+        if (json && json.current) {
+            var payload = buildWeatherPayload(json.current, style);
+            saveWeatherCache(payload, location.lat, location.lon, style);
+            sendAppMessage(payload, "weather-current");
+            return;
+        }
+
+        console.log("[solar] weather fetch failed" + (errorTag ? " (" + errorTag + ")" : ""));
+        if (weatherCache && weatherCache.payload) {
+            var stalePayload = mergeObjects(weatherCache.payload, { WeatherStatus: 1 });
+            sendAppMessage(stalePayload, "weather-stale");
+            return;
+        }
+        sendAppMessage({ WeatherStatus: 2 }, "weather-failed");
+    });
+}
+
 function cityFromAddress(address) {
     if (!address) {
         return "";
@@ -582,6 +740,7 @@ function requestAndSendSolar(reason) {
         sendStatus(STATUS.sendingPayload, 88);
         sendAppMessage(payload, "solar-payload");
         sendSettingsToWatch();
+        requestAndSendWeather({ lat: devLat, lon: devLon, source: SOURCE.manual }, reason, style);
         sendStatus(STATUS.complete, 100);
         return;
     }
@@ -598,6 +757,7 @@ function requestAndSendSolar(reason) {
         sendStatus(STATUS.sendingPayload, 82);
         sendAppMessage(payload, "solar-payload-initial");
         sendSettingsToWatch();
+        requestAndSendWeather(location, reason, style);
         sendStatus(STATUS.complete, 100);
 
         resolveCityName(location, function(cityName) {

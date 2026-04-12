@@ -531,8 +531,6 @@ Discarded input sections
  .text.strcat   0x00000000        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
  .text.strftime
                 0x00000000        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
- .text.strlen   0x00000000        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
- .text.strncat  0x00000000        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
  .text.strncmp  0x00000000        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
  .text.strncpy  0x00000000        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
  .text.text_layer_legacy2_create
@@ -1498,7 +1496,7 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
  .note.gnu.build-id
                 0x00000084       0x24 linker stubs
 
-.text           0x000000a8     0x2d6c
+.text           0x000000a8     0x3474
  *(.text)
  .text          0x000000a8       0x14 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
  .text          0x000000bc      0x21c /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_addsubsf3.o)
@@ -1571,341 +1569,393 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
                 0x00000c82       0x20 src/c/Sky.c.33.o
  *fill*         0x00000ca2        0x2 
  .text.prv_loading_timer_cb
-                0x00000ca4      0x144 src/c/Sky.c.33.o
+                0x00000ca4      0x14c src/c/Sky.c.33.o
  .text.prv_send_refresh_request
-                0x00000de8       0x5c src/c/Sky.c.33.o
+                0x00000df0       0x64 src/c/Sky.c.33.o
  .text.prv_tuple_to_i32
-                0x00000e44       0x2c src/c/Sky.c.33.o
+                0x00000e54       0x2c src/c/Sky.c.33.o
  .text.prv_start_loading_timer
-                0x00000e70       0x30 src/c/Sky.c.33.o
+                0x00000e80       0x30 src/c/Sky.c.33.o
  .text.prv_begin_loading
-                0x00000ea0       0x2c src/c/Sky.c.33.o
+                0x00000eb0       0x30 src/c/Sky.c.33.o
  .text.prv_on_connection_event
-                0x00000ecc       0x30 src/c/Sky.c.33.o
+                0x00000ee0       0x30 src/c/Sky.c.33.o
  .text.prv_start_animation_timer
-                0x00000efc       0x54 src/c/Sky.c.33.o
+                0x00000f10       0x54 src/c/Sky.c.33.o
  .text.prv_animation_timer_cb
-                0x00000f50       0x34 src/c/Sky.c.33.o
+                0x00000f64       0x34 src/c/Sky.c.33.o
  .text.prv_restart_animation_timer
-                0x00000f84       0x20 src/c/Sky.c.33.o
+                0x00000f98       0x20 src/c/Sky.c.33.o
  .text.prv_wave_sine_ms.part.0
-                0x00000fa4       0x34 src/c/Sky.c.33.o
+                0x00000fb8       0x34 src/c/Sky.c.33.o
  .text.prv_on_message_received
-                0x00000fd8      0x3bc src/c/Sky.c.33.o
+                0x00000fec      0x680 src/c/Sky.c.33.o
  .text.prv_draw_face.isra.0
-                0x00001394      0xe98 src/c/Sky.c.33.o
+                0x0000166c     0x1210 src/c/Sky.c.33.o
  .text.prv_canvas_update_proc
-                0x0000222c      0x364 src/c/Sky.c.33.o
+                0x0000287c      0x364 src/c/Sky.c.33.o
  .text.startup.main
-                0x00002590      0x120 src/c/Sky.c.33.o
-                0x00002590                main
+                0x00002be0      0x120 src/c/Sky.c.33.o
+                0x00002be0                main
  .text.app_event_loop
-                0x000026b0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026b0                app_event_loop
+                0x00002d00        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d00                app_event_loop
  .text.app_message_deregister_callbacks
-                0x000026bc        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026bc                app_message_deregister_callbacks
+                0x00002d0c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d0c                app_message_deregister_callbacks
  .text.app_message_open
-                0x000026c8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026c8                app_message_open
+                0x00002d18        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d18                app_message_open
  .text.app_timer_cancel
-                0x000026d4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026d4                app_timer_cancel
+                0x00002d24        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d24                app_timer_cancel
  .text.app_timer_register
-                0x000026e0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026e0                app_timer_register
+                0x00002d30        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d30                app_timer_register
  .text.bluetooth_connection_service_peek
-                0x000026ec        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026ec                bluetooth_connection_service_peek
+                0x00002d3c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d3c                bluetooth_connection_service_peek
  .text.bluetooth_connection_service_subscribe
-                0x000026f8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000026f8                bluetooth_connection_service_subscribe
+                0x00002d48        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d48                bluetooth_connection_service_subscribe
  .text.bluetooth_connection_service_unsubscribe
-                0x00002704        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002704                bluetooth_connection_service_unsubscribe
+                0x00002d54        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d54                bluetooth_connection_service_unsubscribe
  .text.cos_lookup
-                0x00002710        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002710                cos_lookup
+                0x00002d60        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d60                cos_lookup
  .text.dict_find
-                0x0000271c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000271c                dict_find
+                0x00002d6c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d6c                dict_find
  .text.dict_write_end
-                0x00002728        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002728                dict_write_end
+                0x00002d78        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d78                dict_write_end
  .text.dict_write_uint32
-                0x00002734        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002734                dict_write_uint32
+                0x00002d84        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d84                dict_write_uint32
  .text.dict_write_uint8
-                0x00002740        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002740                dict_write_uint8
+                0x00002d90        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d90                dict_write_uint8
  .text.fonts_get_system_font
-                0x0000274c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000274c                fonts_get_system_font
+                0x00002d9c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002d9c                fonts_get_system_font
  .text.graphics_fill_rect
-                0x00002758        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002758                graphics_fill_rect
+                0x00002da8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002da8                graphics_fill_rect
  .text.layer_add_child
-                0x00002764        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002764                layer_add_child
+                0x00002db4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002db4                layer_add_child
  .text.layer_create
-                0x00002770        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002770                layer_create
+                0x00002dc0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002dc0                layer_create
  .text.layer_destroy
-                0x0000277c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000277c                layer_destroy
+                0x00002dcc        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002dcc                layer_destroy
  .text.layer_get_bounds
-                0x00002788        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002788                layer_get_bounds
+                0x00002dd8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002dd8                layer_get_bounds
  .text.layer_mark_dirty
-                0x00002794        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002794                layer_mark_dirty
+                0x00002de4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002de4                layer_mark_dirty
  .text.layer_set_update_proc
-                0x000027a0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027a0                layer_set_update_proc
+                0x00002df0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002df0                layer_set_update_proc
  .text.sin_lookup
-                0x000027ac        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027ac                sin_lookup
+                0x00002dfc        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002dfc                sin_lookup
  .text.snprintf
-                0x000027b8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027b8                snprintf
- .text.strcmp   0x000027c4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027c4                strcmp
- .text.strcpy   0x000027d0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027d0                strcpy
+                0x00002e08        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e08                snprintf
+ .text.strcmp   0x00002e14        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e14                strcmp
+ .text.strcpy   0x00002e20        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e20                strcpy
+ .text.strlen   0x00002e2c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e2c                strlen
+ .text.strncat  0x00002e38        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e38                strncat
  .text.tick_timer_service_subscribe
-                0x000027dc        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027dc                tick_timer_service_subscribe
+                0x00002e44        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e44                tick_timer_service_subscribe
  .text.tick_timer_service_unsubscribe
-                0x000027e8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027e8                tick_timer_service_unsubscribe
+                0x00002e50        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e50                tick_timer_service_unsubscribe
  .text.window_create
-                0x000027f4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x000027f4                window_create
+                0x00002e5c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e5c                window_create
  .text.window_destroy
-                0x00002800        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002800                window_destroy
+                0x00002e68        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e68                window_destroy
  .text.window_get_root_layer
-                0x0000280c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000280c                window_get_root_layer
+                0x00002e74        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e74                window_get_root_layer
  .text.window_set_window_handlers
-                0x00002818        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002818                window_set_window_handlers
+                0x00002e80        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e80                window_set_window_handlers
  .text.window_stack_push
-                0x00002824        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002824                window_stack_push
+                0x00002e8c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e8c                window_stack_push
  .text.app_message_outbox_begin
-                0x00002830        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002830                app_message_outbox_begin
+                0x00002e98        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002e98                app_message_outbox_begin
  .text.app_message_outbox_send
-                0x0000283c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000283c                app_message_outbox_send
+                0x00002ea4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002ea4                app_message_outbox_send
  .text.app_message_register_inbox_received
-                0x00002848        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002848                app_message_register_inbox_received
+                0x00002eb0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002eb0                app_message_register_inbox_received
  .text.graphics_draw_text
-                0x00002854        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002854                graphics_draw_text
+                0x00002ebc        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002ebc                graphics_draw_text
  .text.graphics_text_layout_get_content_size
-                0x00002860        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002860                graphics_text_layout_get_content_size
+                0x00002ec8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002ec8                graphics_text_layout_get_content_size
  .text.graphics_context_set_fill_color
-                0x0000286c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000286c                graphics_context_set_fill_color
+                0x00002ed4        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002ed4                graphics_context_set_fill_color
  .text.graphics_context_set_text_color
-                0x00002878        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002878                graphics_context_set_text_color
+                0x00002ee0        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002ee0                graphics_context_set_text_color
  .text.localtime
-                0x00002884        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002884                localtime
- .text.time     0x00002890        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x00002890                time
- .text.time_ms  0x0000289c        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
-                0x0000289c                time_ms
+                0x00002eec        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002eec                localtime
+ .text.time     0x00002ef8        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002ef8                time
+ .text.time_ms  0x00002f04        0xc /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+                0x00002f04                time_ms
  .text.__udivmoddi4
-                0x000028a8      0x2f4 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_udivmoddi4.o)
-                0x000028a8                __udivmoddi4
+                0x00002f10      0x2f4 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_udivmoddi4.o)
+                0x00002f10                __udivmoddi4
  *(.rodata)
  *(.rodata*)
  .rodata.prv_on_message_received.str1.1
-                0x00002b9c      0x13b src/c/Sky.c.33.o
+                0x00003204      0x1da src/c/Sky.c.33.o
                                   0x3 (size before relaxing)
  .rodata.prv_draw_face.isra.0.str1.1
-                0x00002cd7       0x6a src/c/Sky.c.33.o
+                0x000033de      0x137 src/c/Sky.c.33.o
  .rodata.prv_canvas_update_proc.str1.1
-                0x00002cd7       0x89 src/c/Sky.c.33.o
+                0x000033de       0x89 src/c/Sky.c.33.o
  .rodata.main.str1.1
-                0x00002cd7       0x51 src/c/Sky.c.33.o
- .rodata.CSWTCH.123
-                0x00002cd7        0x6 src/c/Sky.c.33.o
- .rodata.CSWTCH.121
-                0x00002cdd        0x6 src/c/Sky.c.33.o
- *fill*         0x00002ce3        0x1 
+                0x000033de       0x36 src/c/Sky.c.33.o
+ .rodata.CSWTCH.148
+                0x000033de        0x6 src/c/Sky.c.33.o
+ .rodata.CSWTCH.146
+                0x000033e4        0x6 src/c/Sky.c.33.o
+ *fill*         0x000033ea        0x2 
  .rodata.s_render_profiles
-                0x00002ce4       0xdc src/c/Sky.c.33.o
+                0x000033ec       0xdc src/c/Sky.c.33.o
  .rodata.s_atmosphere
-                0x00002dc0       0x54 src/c/Sky.c.33.o
+                0x000034c8       0x54 src/c/Sky.c.33.o
 
-.glue_7         0x00002e14        0x0
- .glue_7        0x00002e14        0x0 linker stubs
+.glue_7         0x0000351c        0x0
+ .glue_7        0x0000351c        0x0 linker stubs
 
-.glue_7t        0x00002e14        0x0
- .glue_7t       0x00002e14        0x0 linker stubs
+.glue_7t        0x0000351c        0x0
+ .glue_7t       0x0000351c        0x0 linker stubs
 
-.vfp11_veneer   0x00002e14        0x0
- .vfp11_veneer  0x00002e14        0x0 linker stubs
+.vfp11_veneer   0x0000351c        0x0
+ .vfp11_veneer  0x0000351c        0x0 linker stubs
 
-.v4_bx          0x00002e14        0x0
- .v4_bx         0x00002e14        0x0 linker stubs
+.v4_bx          0x0000351c        0x0
+ .v4_bx         0x0000351c        0x0 linker stubs
 
-.init           0x00002e14        0x4
- .init          0x00002e14        0x4 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crti.o
-                0x00002e14                _init
+.init           0x0000351c        0x4
+ .init          0x0000351c        0x4 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crti.o
+                0x0000351c                _init
 
-.fini           0x00002e18        0x4
- .fini          0x00002e18        0x4 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crti.o
-                0x00002e18                _fini
+.fini           0x00003520        0x4
+ .fini          0x00003520        0x4 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crti.o
+                0x00003520                _fini
 
-.iplt           0x00002e1c        0x0
- .iplt          0x00002e1c        0x0 src/c/Sky.c.33.o
+.iplt           0x00003524        0x0
+ .iplt          0x00003524        0x0 src/c/Sky.c.33.o
 
-.rel.dyn        0x00002e1c        0x0
- .rel.iplt      0x00002e1c        0x0 src/c/Sky.c.33.o
- .rel.got       0x00002e1c        0x0 src/c/Sky.c.33.o
+.rel.dyn        0x00003524        0x0
+ .rel.iplt      0x00003524        0x0 src/c/Sky.c.33.o
+ .rel.got       0x00003524        0x0 src/c/Sky.c.33.o
 
 .ARM.exidx.text.__udivmoddi4
-                0x00002e1c        0x8
+                0x00003524        0x8
  .ARM.exidx.text.__udivmoddi4
-                0x00002e1c        0x8 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_udivmoddi4.o)
+                0x00003524        0x8 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_udivmoddi4.o)
 
-.data           0x00002e24       0xf0
+.data           0x0000352c      0x170
  *(.data)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crti.o
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtbegin.o
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/crt0.o
- .data          0x00002e24        0x0 src/c/Sky.c.33.o
- .data          0x00002e24        0x0 basalt/appinfo.auto.c.33.o
- .data          0x00002e24        0x0 basalt/src/resource_ids.auto.c.33.o
- .data          0x00002e24        0x0 src/message_keys.auto.c.33.o
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_mulsf3.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_addsubsf3.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_muldivsf3.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_cmpsf2.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_fixsfsi.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_aeabi_ldivmod.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_udivmoddi4.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_dvmd_tls.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-atexit.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-exit.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-findfp.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-impure.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-init.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fini.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-lock.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-__atexit.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-__call_atexit.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-mallocr.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-mlock.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fwalk.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fclose.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fflush.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-stdio.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-closer.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-reent.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-lseekr.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-readr.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-sbrkr.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-writer.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-sysconf.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-freer.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-errno.o)
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtend.o
- .data          0x00002e24        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtn.o
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crti.o
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtbegin.o
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/crt0.o
+ .data          0x0000352c        0x0 src/c/Sky.c.33.o
+ .data          0x0000352c        0x0 basalt/appinfo.auto.c.33.o
+ .data          0x0000352c        0x0 basalt/src/resource_ids.auto.c.33.o
+ .data          0x0000352c        0x0 src/message_keys.auto.c.33.o
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/current/sdk-core/pebble/basalt/lib/libpebble.a(tmpFRPTsFpebble.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_mulsf3.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_addsubsf3.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_muldivsf3.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_cmpsf2.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_arm_fixsfsi.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_aeabi_ldivmod.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_udivmoddi4.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/libgcc.a(_dvmd_tls.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-atexit.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-exit.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-findfp.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-impure.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-init.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fini.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-lock.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-__atexit.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-__call_atexit.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-mallocr.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-mlock.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fwalk.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fclose.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-fflush.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-stdio.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-closer.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-reent.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-lseekr.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-readr.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-sbrkr.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-writer.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-sysconf.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-freer.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-errno.o)
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtend.o
+ .data          0x0000352c        0x0 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtn.o
  *(.data.*)
- .data.s_state  0x00002e24       0xa8 src/c/Sky.c.33.o
+ .data.s_state  0x0000352c       0xe8 src/c/Sky.c.33.o
+ .data.MESSAGE_KEY_WeatherWindX10
+                0x00003614        0x4 src/message_keys.auto.c.33.o
+                0x00003614                MESSAGE_KEY_WeatherWindX10
+ .data.MESSAGE_KEY_WeatherUpdatedEpoch
+                0x00003618        0x4 src/message_keys.auto.c.33.o
+                0x00003618                MESSAGE_KEY_WeatherUpdatedEpoch
+ .data.MESSAGE_KEY_WeatherUnitFahrenheit
+                0x0000361c        0x4 src/message_keys.auto.c.33.o
+                0x0000361c                MESSAGE_KEY_WeatherUnitFahrenheit
+ .data.MESSAGE_KEY_WeatherTempX10
+                0x00003620        0x4 src/message_keys.auto.c.33.o
+                0x00003620                MESSAGE_KEY_WeatherTempX10
+ .data.MESSAGE_KEY_WeatherStatus
+                0x00003624        0x4 src/message_keys.auto.c.33.o
+                0x00003624                MESSAGE_KEY_WeatherStatus
+ .data.MESSAGE_KEY_WeatherPrecipX100
+                0x00003628        0x4 src/message_keys.auto.c.33.o
+                0x00003628                MESSAGE_KEY_WeatherPrecipX100
+ .data.MESSAGE_KEY_WeatherEnabled
+                0x0000362c        0x4 src/message_keys.auto.c.33.o
+                0x0000362c                MESSAGE_KEY_WeatherEnabled
+ .data.MESSAGE_KEY_WeatherDetailLevel
+                0x00003630        0x4 src/message_keys.auto.c.33.o
+                0x00003630                MESSAGE_KEY_WeatherDetailLevel
+ .data.MESSAGE_KEY_WeatherCode
+                0x00003634        0x4 src/message_keys.auto.c.33.o
+                0x00003634                MESSAGE_KEY_WeatherCode
+ .data.MESSAGE_KEY_WeatherCloudCover
+                0x00003638        0x4 src/message_keys.auto.c.33.o
+                0x00003638                MESSAGE_KEY_WeatherCloudCover
+ .data.MESSAGE_KEY_TimeSizeGabbro
+                0x0000363c        0x4 src/message_keys.auto.c.33.o
+                0x0000363c                MESSAGE_KEY_TimeSizeGabbro
+ .data.MESSAGE_KEY_TimeSizeEmery
+                0x00003640        0x4 src/message_keys.auto.c.33.o
+                0x00003640                MESSAGE_KEY_TimeSizeEmery
+ .data.MESSAGE_KEY_TimeSizeChalk
+                0x00003644        0x4 src/message_keys.auto.c.33.o
+                0x00003644                MESSAGE_KEY_TimeSizeChalk
+ .data.MESSAGE_KEY_TimeSizeBasalt
+                0x00003648        0x4 src/message_keys.auto.c.33.o
+                0x00003648                MESSAGE_KEY_TimeSizeBasalt
  .data.MESSAGE_KEY_TextOverrideMode
-                0x00002ecc        0x4 src/message_keys.auto.c.33.o
-                0x00002ecc                MESSAGE_KEY_TextOverrideMode
+                0x0000364c        0x4 src/message_keys.auto.c.33.o
+                0x0000364c                MESSAGE_KEY_TextOverrideMode
  .data.MESSAGE_KEY_StatusCode
-                0x00002ed0        0x4 src/message_keys.auto.c.33.o
-                0x00002ed0                MESSAGE_KEY_StatusCode
+                0x00003650        0x4 src/message_keys.auto.c.33.o
+                0x00003650                MESSAGE_KEY_StatusCode
  .data.MESSAGE_KEY_SourceCode
-                0x00002ed4        0x4 src/message_keys.auto.c.33.o
-                0x00002ed4                MESSAGE_KEY_SourceCode
+                0x00003654        0x4 src/message_keys.auto.c.33.o
+                0x00003654                MESSAGE_KEY_SourceCode
+ .data.MESSAGE_KEY_ShowLocation
+                0x00003658        0x4 src/message_keys.auto.c.33.o
+                0x00003658                MESSAGE_KEY_ShowLocation
+ .data.MESSAGE_KEY_ShowAltitude
+                0x0000365c        0x4 src/message_keys.auto.c.33.o
+                0x0000365c                MESSAGE_KEY_ShowAltitude
  .data.MESSAGE_KEY_ReloadFaceToken
-                0x00002ed8        0x4 src/message_keys.auto.c.33.o
-                0x00002ed8                MESSAGE_KEY_ReloadFaceToken
+                0x00003660        0x4 src/message_keys.auto.c.33.o
+                0x00003660                MESSAGE_KEY_ReloadFaceToken
  .data.MESSAGE_KEY_RefreshRequest
-                0x00002edc        0x4 src/message_keys.auto.c.33.o
-                0x00002edc                MESSAGE_KEY_RefreshRequest
+                0x00003664        0x4 src/message_keys.auto.c.33.o
+                0x00003664                MESSAGE_KEY_RefreshRequest
  .data.MESSAGE_KEY_ProgressPercent
-                0x00002ee0        0x4 src/message_keys.auto.c.33.o
-                0x00002ee0                MESSAGE_KEY_ProgressPercent
+                0x00003668        0x4 src/message_keys.auto.c.33.o
+                0x00003668                MESSAGE_KEY_ProgressPercent
  .data.MESSAGE_KEY_MotionMode
-                0x00002ee4        0x4 src/message_keys.auto.c.33.o
-                0x00002ee4                MESSAGE_KEY_MotionMode
+                0x0000366c        0x4 src/message_keys.auto.c.33.o
+                0x0000366c                MESSAGE_KEY_MotionMode
  .data.MESSAGE_KEY_LongitudeE6
-                0x00002ee8        0x4 src/message_keys.auto.c.33.o
-                0x00002ee8                MESSAGE_KEY_LongitudeE6
+                0x00003670        0x4 src/message_keys.auto.c.33.o
+                0x00003670                MESSAGE_KEY_LongitudeE6
  .data.MESSAGE_KEY_LatitudeE6
-                0x00002eec        0x4 src/message_keys.auto.c.33.o
-                0x00002eec                MESSAGE_KEY_LatitudeE6
+                0x00003674        0x4 src/message_keys.auto.c.33.o
+                0x00003674                MESSAGE_KEY_LatitudeE6
  .data.MESSAGE_KEY_GradientAngleDegX100
-                0x00002ef0        0x4 src/message_keys.auto.c.33.o
-                0x00002ef0                MESSAGE_KEY_GradientAngleDegX100
+                0x00003678        0x4 src/message_keys.auto.c.33.o
+                0x00003678                MESSAGE_KEY_GradientAngleDegX100
  .data.MESSAGE_KEY_DevSweepEnabled
-                0x00002ef4        0x4 src/message_keys.auto.c.33.o
-                0x00002ef4                MESSAGE_KEY_DevSweepEnabled
+                0x0000367c        0x4 src/message_keys.auto.c.33.o
+                0x0000367c                MESSAGE_KEY_DevSweepEnabled
  .data.MESSAGE_KEY_DevShowDebugOverlay
-                0x00002ef8        0x4 src/message_keys.auto.c.33.o
-                0x00002ef8                MESSAGE_KEY_DevShowDebugOverlay
+                0x00003680        0x4 src/message_keys.auto.c.33.o
+                0x00003680                MESSAGE_KEY_DevShowDebugOverlay
  .data.MESSAGE_KEY_DevModeEnabled
-                0x00002efc        0x4 src/message_keys.auto.c.33.o
-                0x00002efc                MESSAGE_KEY_DevModeEnabled
+                0x00003684        0x4 src/message_keys.auto.c.33.o
+                0x00003684                MESSAGE_KEY_DevModeEnabled
  .data.MESSAGE_KEY_ComputedAtEpoch
-                0x00002f00        0x4 src/message_keys.auto.c.33.o
-                0x00002f00                MESSAGE_KEY_ComputedAtEpoch
+                0x00003688        0x4 src/message_keys.auto.c.33.o
+                0x00003688                MESSAGE_KEY_ComputedAtEpoch
  .data.MESSAGE_KEY_CityName
-                0x00002f04        0x4 src/message_keys.auto.c.33.o
-                0x00002f04                MESSAGE_KEY_CityName
+                0x0000368c        0x4 src/message_keys.auto.c.33.o
+                0x0000368c                MESSAGE_KEY_CityName
  .data.MESSAGE_KEY_BatterySaveMode
-                0x00002f08        0x4 src/message_keys.auto.c.33.o
-                0x00002f08                MESSAGE_KEY_BatterySaveMode
+                0x00003690        0x4 src/message_keys.auto.c.33.o
+                0x00003690                MESSAGE_KEY_BatterySaveMode
  .data.MESSAGE_KEY_AzimuthDegX100
-                0x00002f0c        0x4 src/message_keys.auto.c.33.o
-                0x00002f0c                MESSAGE_KEY_AzimuthDegX100
+                0x00003694        0x4 src/message_keys.auto.c.33.o
+                0x00003694                MESSAGE_KEY_AzimuthDegX100
  .data.MESSAGE_KEY_AltitudeDegX100
-                0x00002f10        0x4 src/message_keys.auto.c.33.o
-                0x00002f10                MESSAGE_KEY_AltitudeDegX100
+                0x00003698        0x4 src/message_keys.auto.c.33.o
+                0x00003698                MESSAGE_KEY_AltitudeDegX100
 
-.igot.plt       0x00002f14        0x0
- .igot.plt      0x00002f14        0x0 src/c/Sky.c.33.o
+.igot.plt       0x0000369c        0x0
+ .igot.plt      0x0000369c        0x0 src/c/Sky.c.33.o
 
-.got            0x00002f14       0x48
- .got           0x00002f14       0x48 src/c/Sky.c.33.o
+.got            0x0000369c       0x88
+ .got           0x0000369c       0x88 src/c/Sky.c.33.o
 
-.got.plt        0x00002f5c        0xc
- .got.plt       0x00002f5c        0xc src/c/Sky.c.33.o
-                0x00002f5c                _GLOBAL_OFFSET_TABLE_
+.got.plt        0x00003724        0xc
+ .got.plt       0x00003724        0xc src/c/Sky.c.33.o
+                0x00003724                _GLOBAL_OFFSET_TABLE_
 
-.bss            0x00002f68       0x20
+.bss            0x00003730       0x20
  *(.bss)
  *(.bss.*)
  .bss.s_info_font_small
-                0x00002f68        0x4 src/c/Sky.c.33.o
+                0x00003730        0x4 src/c/Sky.c.33.o
  .bss.s_info_font_large
-                0x00002f6c        0x4 src/c/Sky.c.33.o
+                0x00003734        0x4 src/c/Sky.c.33.o
  .bss.s_time_font
-                0x00002f70        0x4 src/c/Sky.c.33.o
+                0x00003738        0x4 src/c/Sky.c.33.o
  .bss.s_active_profile
-                0x00002f74        0x4 src/c/Sky.c.33.o
+                0x0000373c        0x4 src/c/Sky.c.33.o
  .bss.s_animation_timer
-                0x00002f78        0x4 src/c/Sky.c.33.o
+                0x00003740        0x4 src/c/Sky.c.33.o
  .bss.s_loading_timer
-                0x00002f7c        0x4 src/c/Sky.c.33.o
+                0x00003744        0x4 src/c/Sky.c.33.o
  .bss.s_canvas_layer
-                0x00002f80        0x4 src/c/Sky.c.33.o
- .bss.s_window  0x00002f84        0x4 src/c/Sky.c.33.o
+                0x00003748        0x4 src/c/Sky.c.33.o
+ .bss.s_window  0x0000374c        0x4 src/c/Sky.c.33.o
 
 DISCARD
  libc.a(*)
@@ -2039,22 +2089,22 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
  .comment       0x00000038       0x39 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-errno.o)
  .comment       0x00000038       0x39 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtend.o
 
-.debug_info     0x00000000     0x58b0
- .debug_info    0x00000000     0x52c0 src/c/Sky.c.33.o
- .debug_info    0x000052c0      0x33e basalt/appinfo.auto.c.33.o
- .debug_info    0x000055fe       0x65 basalt/src/resource_ids.auto.c.33.o
- .debug_info    0x00005663      0x24d src/message_keys.auto.c.33.o
+.debug_info     0x00000000     0x6560
+ .debug_info    0x00000000     0x5e70 src/c/Sky.c.33.o
+ .debug_info    0x00005e70      0x33e basalt/appinfo.auto.c.33.o
+ .debug_info    0x000061ae       0x65 basalt/src/resource_ids.auto.c.33.o
+ .debug_info    0x00006213      0x34d src/message_keys.auto.c.33.o
 
-.debug_abbrev   0x00000000      0x727
- .debug_abbrev  0x00000000      0x5fe src/c/Sky.c.33.o
- .debug_abbrev  0x000005fe       0xb9 basalt/appinfo.auto.c.33.o
- .debug_abbrev  0x000006b7       0x26 basalt/src/resource_ids.auto.c.33.o
- .debug_abbrev  0x000006dd       0x4a src/message_keys.auto.c.33.o
+.debug_abbrev   0x00000000      0x706
+ .debug_abbrev  0x00000000      0x5dd src/c/Sky.c.33.o
+ .debug_abbrev  0x000005dd       0xb9 basalt/appinfo.auto.c.33.o
+ .debug_abbrev  0x00000696       0x26 basalt/src/resource_ids.auto.c.33.o
+ .debug_abbrev  0x000006bc       0x4a src/message_keys.auto.c.33.o
 
 .debug_loclists
-                0x00000000     0x2ea6
+                0x00000000     0x3590
  .debug_loclists
-                0x00000000     0x2ea6 src/c/Sky.c.33.o
+                0x00000000     0x3590 src/c/Sky.c.33.o
 
 .debug_aranges  0x00000000      0x130
  .debug_aranges
@@ -2067,22 +2117,22 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
                 0x00000118       0x18 src/message_keys.auto.c.33.o
 
 .debug_rnglists
-                0x00000000      0x4f3
+                0x00000000      0x5f2
  .debug_rnglists
-                0x00000000      0x4f3 src/c/Sky.c.33.o
+                0x00000000      0x5f2 src/c/Sky.c.33.o
 
-.debug_line     0x00000000     0x27b8
- .debug_line    0x00000000     0x2451 src/c/Sky.c.33.o
- .debug_line    0x00002451      0x1cf basalt/appinfo.auto.c.33.o
- .debug_line    0x00002620       0x3f basalt/src/resource_ids.auto.c.33.o
- .debug_line    0x0000265f      0x159 src/message_keys.auto.c.33.o
+.debug_line     0x00000000     0x2e60
+ .debug_line    0x00000000     0x2af9 src/c/Sky.c.33.o
+ .debug_line    0x00002af9      0x1cf basalt/appinfo.auto.c.33.o
+ .debug_line    0x00002cc8       0x3f basalt/src/resource_ids.auto.c.33.o
+ .debug_line    0x00002d07      0x159 src/message_keys.auto.c.33.o
 
-.debug_str      0x00000000     0x1ef2
- .debug_str     0x00000000     0x1ef2 src/c/Sky.c.33.o
-                               0x1c5f (size before relaxing)
- .debug_str     0x00001ef2      0x4dc basalt/appinfo.auto.c.33.o
- .debug_str     0x00001ef2      0x170 basalt/src/resource_ids.auto.c.33.o
- .debug_str     0x00001ef2      0x492 src/message_keys.auto.c.33.o
+.debug_str      0x00000000     0x2289
+ .debug_str     0x00000000     0x2289 src/c/Sky.c.33.o
+                               0x2037 (size before relaxing)
+ .debug_str     0x00002289      0x4dc basalt/appinfo.auto.c.33.o
+ .debug_str     0x00002289      0x170 basalt/src/resource_ids.auto.c.33.o
+ .debug_str     0x00002289      0x64e src/message_keys.auto.c.33.o
 
 .debug_frame    0x00000000      0x374
  .debug_frame   0x00000000      0x374 src/c/Sky.c.33.o

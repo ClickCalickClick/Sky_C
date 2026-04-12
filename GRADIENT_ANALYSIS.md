@@ -35,6 +35,22 @@ Supporting settings and messaging paths reviewed:
 5. Watch applies tiny spatial dither to reduce visible banding.
 6. Legacy note: on BW platforms, each RGB sample was thresholded to white/black only.
 
+## 2.2) New Clay + Weather Layer (2026-04-12 Implementation)
+
+The watchface now has a first-pass personalization and weather data layer:
+
+1. Clay now exposes per-device time size controls for basalt/chalk/emery/gabbro.
+2. Clay now exposes independent footer visibility toggles for city and altitude.
+3. Clay now exposes weather controls (enable, Fahrenheit/Celsius, detail level).
+4. pkjs now fetches Open-Meteo current conditions (temperature, weather code, cloud cover, precipitation, wind).
+5. Weather is sent as a follow-up message and does not block core solar payload delivery.
+6. Weather requests are cached/throttled and slowed relative to solar refresh cadence.
+
+Implementation notes:
+- Solar refresh cadence remains 10 minutes.
+- Weather refresh cadence is currently throttled to 45 minutes unless startup/watch-request/settings-updated forces refresh.
+- Battery save mode currently suppresses auto-refresh weather pulls while preserving solar updates.
+
 ## 2.1) Current Acceptance Focus
 
 The current beauty pass must satisfy the strict high-daylight condition:

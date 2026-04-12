@@ -21,6 +21,13 @@
 #define MOTION_MODE_SUBTLE 1
 #define MOTION_MODE_OFF 2
 
+#define TIME_SIZE_COMPACT 0
+#define TIME_SIZE_BALANCED 1
+#define TIME_SIZE_LARGE 2
+
+#define WEATHER_STATUS_STALE 1
+#define WEATHER_STATUS_FAILED 2
+
 #define LOADING_TIMEOUT_MS 15000
 #define LOADING_STALE_HINT_MS 3500
 #define LOADING_STILL_WORKING_MS 6000
@@ -85,6 +92,22 @@ typedef struct {
   int32_t text_override_mode;
   int32_t motion_mode;
   int32_t battery_save_mode;
+  int32_t time_size_basalt;
+  int32_t time_size_chalk;
+  int32_t time_size_emery;
+  int32_t time_size_gabbro;
+  int32_t show_location;
+  int32_t show_altitude;
+  int32_t weather_enabled;
+  int32_t weather_unit_fahrenheit;
+  int32_t weather_detail_level;
+  int32_t weather_status;
+  int32_t weather_temp_x10;
+  int32_t weather_cloud_cover;
+  int32_t weather_code;
+  int32_t weather_wind_x10;
+  int32_t weather_precip_x100;
+  int32_t weather_updated_epoch;
   int32_t custom_location_enabled;
   int32_t custom_latitude_e6;
   int32_t custom_longitude_e6;
@@ -159,6 +182,22 @@ static AppState s_state = {
   .text_override_mode = TEXT_MODE_AUTO,
   .motion_mode = MOTION_MODE_HYBRID,
   .battery_save_mode = 0,
+  .time_size_basalt = TIME_SIZE_BALANCED,
+  .time_size_chalk = TIME_SIZE_BALANCED,
+  .time_size_emery = TIME_SIZE_BALANCED,
+  .time_size_gabbro = TIME_SIZE_BALANCED,
+  .show_location = 1,
+  .show_altitude = 1,
+  .weather_enabled = 0,
+  .weather_unit_fahrenheit = 1,
+  .weather_detail_level = 1,
+  .weather_status = WEATHER_STATUS_STALE,
+  .weather_temp_x10 = 0,
+  .weather_cloud_cover = 0,
+  .weather_code = 0,
+  .weather_wind_x10 = 0,
+  .weather_precip_x100 = 0,
+  .weather_updated_epoch = 0,
   .status_code = STATUS_STARTING,
   .loading_progress = 0,
   .loading_progress_target = 0,
@@ -228,6 +267,37 @@ static const RenderProfile *prv_render_profile_for_bounds(GRect bounds) {
     }
   }
   return &s_render_profiles[0];
+}
+
+static int32_t prv_time_size_mode_for_profile(const RenderProfile *profile) {
+  if (profile->width == 144 && profile->height == 168) {
+    return prv_clamp_i32(s_state.time_size_basalt, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+  }
+  if (profile->width == 180 && profile->height == 180) {
+    return prv_clamp_i32(s_state.time_size_chalk, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+  }
+  if (profile->width == 200 && profile->height == 228) {
+    return prv_clamp_i32(s_state.time_size_emery, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+  }
+  if (profile->width == 260 && profile->height == 260) {
+    return prv_clamp_i32(s_state.time_size_gabbro, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+  }
+  return TIME_SIZE_BALANCED;
+}
+
+static GFont prv_time_font_for_mode(const RenderProfile *profile, int32_t size_mode) {
+  GFont font = s_time_font;
+  int32_t mode = prv_clamp_i32(size_mode, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+
+  if (mode == TIME_SIZE_COMPACT) {
+    font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
+  } else if (mode == TIME_SIZE_LARGE && profile->width >= 200 && profile->height >= 200) {
+    font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+  } else {
+    font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+  }
+
+  return font ? font : s_time_font;
 }
 
 static int32_t prv_effective_motion_mode(void) {
@@ -419,22 +489,23 @@ static GSize prv_text_size(const char *text, GFont font, int16_t width, int16_t 
 }
 
 static void prv_draw_styled_text(GContext *ctx, const char *text, GFont font, TextStyle style,
-                                 int16_t x, int16_t y, int16_t width, int16_t height) {
+                                 int16_t x, int16_t y, int16_t width, int16_t height,
+                                 GTextAlignment alignment) {
   GRect rect = GRect(x, y, width, height);
   if (style.glow) {
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, text, font, GRect(rect.origin.x - 1, rect.origin.y, rect.size.w, rect.size.h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+                       GTextOverflowModeTrailingEllipsis, alignment, NULL);
     graphics_draw_text(ctx, text, font, GRect(rect.origin.x + 1, rect.origin.y, rect.size.w, rect.size.h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+                       GTextOverflowModeTrailingEllipsis, alignment, NULL);
     graphics_draw_text(ctx, text, font, GRect(rect.origin.x, rect.origin.y - 1, rect.size.w, rect.size.h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+                       GTextOverflowModeTrailingEllipsis, alignment, NULL);
     graphics_draw_text(ctx, text, font, GRect(rect.origin.x, rect.origin.y + 1, rect.size.w, rect.size.h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+                       GTextOverflowModeTrailingEllipsis, alignment, NULL);
   }
 
   graphics_context_set_text_color(ctx, style.color);
-  graphics_draw_text(ctx, text, font, rect, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  graphics_draw_text(ctx, text, font, rect, GTextOverflowModeTrailingEllipsis, alignment, NULL);
 }
 
 static int32_t prv_loading_floor_for_code(int32_t code) {
@@ -557,6 +628,64 @@ static void prv_format_azimuth_x100(int32_t azimuth_x100, char *out, size_t len)
     tenth = 0;
   }
   snprintf(out, len, "%ld.%ld", (long)whole, (long)tenth);
+}
+
+static const char *prv_weather_code_label(int32_t code) {
+  if (code == 0) return "clear";
+  if (code >= 1 && code <= 3) return "clouds";
+  if (code == 45 || code == 48) return "fog";
+  if (code >= 51 && code <= 57) return "drizzle";
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) return "snow";
+  if (code >= 95) return "storm";
+  return "wx";
+}
+
+static void prv_format_weather_text(char *out, size_t len) {
+  out[0] = '\0';
+
+  if (s_state.weather_enabled == 0 || s_state.weather_detail_level <= 0) {
+    return;
+  }
+
+  if (s_state.weather_status == WEATHER_STATUS_FAILED) {
+    snprintf(out, len, "wx err");
+    return;
+  }
+
+  if (s_state.weather_updated_epoch <= 0) {
+    snprintf(out, len, "wx --");
+    return;
+  }
+
+  int32_t temp_x10 = s_state.weather_temp_x10;
+  int32_t abs_temp_x10 = temp_x10 < 0 ? -temp_x10 : temp_x10;
+  int32_t temp_whole = abs_temp_x10 / 10;
+  int32_t temp_tenth = abs_temp_x10 % 10;
+  const char *label = prv_weather_code_label(s_state.weather_code);
+  char unit = s_state.weather_unit_fahrenheit ? 'F' : 'C';
+  const char *stale = (s_state.weather_status == WEATHER_STATUS_STALE) ? "~" : "";
+
+  if (s_state.weather_detail_level >= 2) {
+    int32_t cloud = prv_clamp_i32(s_state.weather_cloud_cover, 0, 100);
+    snprintf(out, len, "%s%s%ld.%ld%c %s %ld%%",
+             stale,
+             temp_x10 < 0 ? "-" : "",
+             (long)temp_whole,
+             (long)temp_tenth,
+             unit,
+             label,
+             (long)cloud);
+    return;
+  }
+
+  snprintf(out, len, "%s%s%ld.%ld%c %s",
+           stale,
+           temp_x10 < 0 ? "-" : "",
+           (long)temp_whole,
+           (long)temp_tenth,
+           unit,
+           label);
 }
 
 static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfile *profile) {
@@ -763,29 +892,135 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   char time_text[8];
   snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
 
-  GSize time_size = prv_text_size(time_text, s_time_font, bounds.size.w, bounds.size.h);
-  int16_t time_x = (bounds.size.w - time_size.w) / 2;
-  int16_t time_y = (bounds.size.h - time_size.h) / 2;
-  Rgb time_sample = prv_interpolate_rgb(palette.top, palette.bottom, 0.5f);
-  TextStyle time_style = prv_pick_text_style(time_sample);
-  prv_draw_styled_text(ctx, time_text, s_time_font, time_style, time_x, time_y, time_size.w + 2, time_size.h + 2);
+  int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
+  GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
+
+  char location_text[96];
+  location_text[0] = '\0';
+
+  if (s_state.show_location != 0 || s_state.show_altitude != 0) {
+    char city_text[48];
+    char alt_text[24];
+    city_text[0] = '\0';
+    alt_text[0] = '\0';
+
+    if (s_state.show_location != 0) {
+      prv_resolve_city_name(city_text, sizeof(city_text));
+    }
+
+    if (s_state.show_altitude != 0) {
+      prv_format_altitude_x100(s_state.altitude_deg_x100, alt_text, sizeof(alt_text));
+    }
+
+    if (s_state.show_location != 0 && s_state.show_altitude != 0) {
+      snprintf(location_text, sizeof(location_text), "%s / alt %s deg", city_text, alt_text);
+    } else if (s_state.show_location != 0) {
+      snprintf(location_text, sizeof(location_text), "%s", city_text);
+    } else if (s_state.show_altitude != 0) {
+      snprintf(location_text, sizeof(location_text), "alt %s deg", alt_text);
+    }
+  }
+
+  char weather_text[56];
+  prv_format_weather_text(weather_text, sizeof(weather_text));
+
+  int16_t side_pad = prv_clamp_i16(bounds.size.w / 14, 6, 20);
+  int16_t top_bottom_pad = prv_clamp_i16(bounds.size.h / 12, 8, 26);
+  int16_t content_w = bounds.size.w - (2 * side_pad);
+  if (content_w < 20) {
+    content_w = bounds.size.w;
+    side_pad = 0;
+  }
 
   GFont info_font = bounds.size.h < 200 ? s_info_font_small : s_info_font_large;
-  char alt_text[24];
-  prv_format_altitude_x100(s_state.altitude_deg_x100, alt_text, sizeof(alt_text));
+  int16_t line_gap_main = prv_clamp_i16(bounds.size.h / 36, 2, 8);
+  int16_t line_gap_info = prv_clamp_i16(bounds.size.h / 48, 1, 6);
 
-  char city_text[48];
-  prv_resolve_city_name(city_text, sizeof(city_text));
+  GSize time_size = prv_text_size(time_text, time_font, content_w, bounds.size.h);
+  GSize location_size = GSize(0, 0);
+  GSize weather_size = GSize(0, 0);
+  bool show_location_line = (location_text[0] != '\0');
+  bool show_weather_line = (weather_text[0] != '\0');
 
-  char info_text[96];
-  snprintf(info_text, sizeof(info_text), "%s  alt %s deg", city_text, alt_text);
+  if (show_location_line) {
+    location_size = prv_text_size(location_text, info_font, content_w, bounds.size.h);
+  }
+  if (show_weather_line) {
+    weather_size = prv_text_size(weather_text, info_font, content_w, bounds.size.h);
+  }
 
-  GSize info_size = prv_text_size(info_text, info_font, bounds.size.w, bounds.size.h);
-  int16_t info_x = (bounds.size.w - info_size.w) / 2;
-  int16_t info_y = bounds.size.h - info_size.h - 24;
-  Rgb info_sample = prv_interpolate_rgb(palette.top, palette.bottom, 0.8f);
-  TextStyle info_style = prv_pick_text_style(info_sample);
-  prv_draw_styled_text(ctx, info_text, info_font, info_style, info_x, info_y, info_size.w + 2, info_size.h + 2);
+  int16_t block_h = time_size.h;
+  if (show_location_line || show_weather_line) {
+    block_h += line_gap_main;
+  }
+  if (show_location_line) {
+    block_h += location_size.h;
+  }
+  if (show_location_line && show_weather_line) {
+    block_h += line_gap_info;
+  }
+  if (show_weather_line) {
+    block_h += weather_size.h;
+  }
+
+  int16_t available_h = bounds.size.h - (2 * top_bottom_pad);
+  if (block_h > available_h) {
+    line_gap_main = 1;
+    line_gap_info = 1;
+    block_h = time_size.h;
+    if (show_location_line || show_weather_line) {
+      block_h += line_gap_main;
+    }
+    if (show_location_line) {
+      block_h += location_size.h;
+    }
+    if (show_location_line && show_weather_line) {
+      block_h += line_gap_info;
+    }
+    if (show_weather_line) {
+      block_h += weather_size.h;
+    }
+  }
+
+  int16_t start_y = top_bottom_pad;
+  if (available_h > block_h) {
+    start_y += (available_h - block_h) / 2;
+  }
+
+  int16_t y_cursor = start_y;
+  float time_sample_t = prv_clampf(((float)y_cursor + ((float)time_size.h * 0.5f)) / (float)bounds.size.h, 0.0f, 1.0f);
+  Rgb time_sample = prv_interpolate_rgb(palette.top, palette.bottom, time_sample_t);
+  TextStyle time_style = prv_pick_text_style(time_sample);
+  prv_draw_styled_text(ctx, time_text, time_font, time_style,
+                       side_pad, y_cursor, content_w, time_size.h + 2, GTextAlignmentCenter);
+  y_cursor += time_size.h;
+
+  if (show_location_line || show_weather_line) {
+    y_cursor += line_gap_main;
+  }
+
+  if (show_location_line) {
+    float location_sample_t = prv_clampf(((float)y_cursor + ((float)location_size.h * 0.5f)) / (float)bounds.size.h,
+                                         0.0f, 1.0f);
+    Rgb location_sample = prv_interpolate_rgb(palette.top, palette.bottom, location_sample_t);
+    TextStyle location_style = prv_pick_text_style(location_sample);
+    prv_draw_styled_text(ctx, location_text, info_font, location_style,
+                         side_pad, y_cursor, content_w, location_size.h + 2, GTextAlignmentCenter);
+    y_cursor += location_size.h;
+  }
+
+  if (show_location_line && show_weather_line) {
+    y_cursor += line_gap_info;
+  }
+
+  if (show_weather_line) {
+    float weather_sample_t = prv_clampf(((float)y_cursor + ((float)weather_size.h * 0.5f)) / (float)bounds.size.h,
+                                        0.0f, 1.0f);
+    Rgb weather_sample = prv_interpolate_rgb(palette.top, palette.bottom, weather_sample_t);
+    TextStyle weather_style = prv_pick_text_style(weather_sample);
+    prv_draw_styled_text(ctx, weather_text, info_font, weather_style,
+                         side_pad, y_cursor, content_w, weather_size.h + 2, GTextAlignmentCenter);
+  }
 
   if (s_state.dev_mode_enabled && s_state.dev_show_debug_overlay) {
     char az_text[16];
@@ -796,7 +1031,8 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
 
     Rgb dev_sample = prv_interpolate_rgb(palette.top, palette.bottom, 0.2f);
     TextStyle dev_style = prv_pick_text_style(dev_sample);
-    prv_draw_styled_text(ctx, dev_text, s_info_font_small, dev_style, 4, 4, bounds.size.w - 8, 18);
+    prv_draw_styled_text(ctx, dev_text, s_info_font_small, dev_style,
+                         4, 4, bounds.size.w - 8, 18, GTextAlignmentLeft);
   }
 
   prv_draw_refresh_badge(ctx, bounds, now_ms);
@@ -914,6 +1150,102 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
     s_state.battery_save_mode = prv_tuple_to_i32(battery_mode) != 0 ? 1 : 0;
     loading_changed = true;
     motion_changed = true;
+  }
+
+  Tuple *time_size_basalt = dict_find(iter, MESSAGE_KEY_TimeSizeBasalt);
+  if (time_size_basalt) {
+    s_state.time_size_basalt = prv_clamp_i32(prv_tuple_to_i32(time_size_basalt), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+    loading_changed = true;
+  }
+
+  Tuple *time_size_chalk = dict_find(iter, MESSAGE_KEY_TimeSizeChalk);
+  if (time_size_chalk) {
+    s_state.time_size_chalk = prv_clamp_i32(prv_tuple_to_i32(time_size_chalk), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+    loading_changed = true;
+  }
+
+  Tuple *time_size_emery = dict_find(iter, MESSAGE_KEY_TimeSizeEmery);
+  if (time_size_emery) {
+    s_state.time_size_emery = prv_clamp_i32(prv_tuple_to_i32(time_size_emery), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+    loading_changed = true;
+  }
+
+  Tuple *time_size_gabbro = dict_find(iter, MESSAGE_KEY_TimeSizeGabbro);
+  if (time_size_gabbro) {
+    s_state.time_size_gabbro = prv_clamp_i32(prv_tuple_to_i32(time_size_gabbro), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+    loading_changed = true;
+  }
+
+  Tuple *show_location = dict_find(iter, MESSAGE_KEY_ShowLocation);
+  if (show_location) {
+    s_state.show_location = prv_tuple_to_i32(show_location) != 0 ? 1 : 0;
+    loading_changed = true;
+  }
+
+  Tuple *show_altitude = dict_find(iter, MESSAGE_KEY_ShowAltitude);
+  if (show_altitude) {
+    s_state.show_altitude = prv_tuple_to_i32(show_altitude) != 0 ? 1 : 0;
+    loading_changed = true;
+  }
+
+  Tuple *weather_enabled = dict_find(iter, MESSAGE_KEY_WeatherEnabled);
+  if (weather_enabled) {
+    s_state.weather_enabled = prv_tuple_to_i32(weather_enabled) != 0 ? 1 : 0;
+    loading_changed = true;
+  }
+
+  Tuple *weather_unit_fahrenheit = dict_find(iter, MESSAGE_KEY_WeatherUnitFahrenheit);
+  if (weather_unit_fahrenheit) {
+    s_state.weather_unit_fahrenheit = prv_tuple_to_i32(weather_unit_fahrenheit) != 0 ? 1 : 0;
+    loading_changed = true;
+  }
+
+  Tuple *weather_detail_level = dict_find(iter, MESSAGE_KEY_WeatherDetailLevel);
+  if (weather_detail_level) {
+    s_state.weather_detail_level = prv_clamp_i32(prv_tuple_to_i32(weather_detail_level), 0, 2);
+    loading_changed = true;
+  }
+
+  Tuple *weather_status = dict_find(iter, MESSAGE_KEY_WeatherStatus);
+  if (weather_status) {
+    s_state.weather_status = prv_clamp_i32(prv_tuple_to_i32(weather_status), 0, WEATHER_STATUS_FAILED);
+    loading_changed = true;
+  }
+
+  Tuple *weather_temp_x10 = dict_find(iter, MESSAGE_KEY_WeatherTempX10);
+  if (weather_temp_x10) {
+    s_state.weather_temp_x10 = prv_tuple_to_i32(weather_temp_x10);
+    loading_changed = true;
+  }
+
+  Tuple *weather_cloud_cover = dict_find(iter, MESSAGE_KEY_WeatherCloudCover);
+  if (weather_cloud_cover) {
+    s_state.weather_cloud_cover = prv_clamp_i32(prv_tuple_to_i32(weather_cloud_cover), 0, 100);
+    loading_changed = true;
+  }
+
+  Tuple *weather_code = dict_find(iter, MESSAGE_KEY_WeatherCode);
+  if (weather_code) {
+    s_state.weather_code = prv_tuple_to_i32(weather_code);
+    loading_changed = true;
+  }
+
+  Tuple *weather_wind_x10 = dict_find(iter, MESSAGE_KEY_WeatherWindX10);
+  if (weather_wind_x10) {
+    s_state.weather_wind_x10 = prv_tuple_to_i32(weather_wind_x10);
+    loading_changed = true;
+  }
+
+  Tuple *weather_precip_x100 = dict_find(iter, MESSAGE_KEY_WeatherPrecipX100);
+  if (weather_precip_x100) {
+    s_state.weather_precip_x100 = prv_tuple_to_i32(weather_precip_x100);
+    loading_changed = true;
+  }
+
+  Tuple *weather_updated_epoch = dict_find(iter, MESSAGE_KEY_WeatherUpdatedEpoch);
+  if (weather_updated_epoch) {
+    s_state.weather_updated_epoch = prv_tuple_to_i32(weather_updated_epoch);
+    loading_changed = true;
   }
 
   Tuple *dev_mode = dict_find(iter, MESSAGE_KEY_DevModeEnabled);
@@ -1137,7 +1469,7 @@ static void prv_init(void) {
   window_stack_push(s_window, true);
 
   app_message_register_inbox_received(prv_on_message_received);
-  app_message_open(512, 256);
+  app_message_open(768, 256);
 
   tick_timer_service_subscribe(MINUTE_UNIT, prv_on_minute_tick);
   bluetooth_connection_service_subscribe(prv_on_connection_event);

@@ -45,6 +45,67 @@ module.exports = [
     items: [
       {
         type: "heading",
+        defaultValue: "Time Size"
+      },
+      {
+        type: "text",
+        defaultValue: "Choose the time size for your connected watch."
+      },
+      {
+        type: "select",
+        messageKey: "TimeSizeBasalt",
+        label: "Time size",
+        defaultValue: "1",
+        capabilities: ["PLATFORM_BASALT"],
+        options: [
+          { label: "Compact", value: "0" },
+          { label: "Balanced", value: "1" },
+          { label: "Large", value: "2" }
+        ]
+      },
+      {
+        type: "select",
+        messageKey: "TimeSizeChalk",
+        label: "Time size",
+        defaultValue: "1",
+        capabilities: ["PLATFORM_CHALK"],
+        options: [
+          { label: "Compact", value: "0" },
+          { label: "Balanced", value: "1" },
+          { label: "Large", value: "2" }
+        ]
+      },
+      {
+        type: "select",
+        messageKey: "TimeSizeEmery",
+        label: "Time size",
+        defaultValue: "1",
+        capabilities: ["PLATFORM_EMERY"],
+        options: [
+          { label: "Compact", value: "0" },
+          { label: "Balanced", value: "1" },
+          { label: "Large", value: "2" }
+        ]
+      },
+      {
+        type: "select",
+        messageKey: "TimeSizeGabbro",
+        label: "Time size",
+        defaultValue: "1",
+        capabilities: ["PLATFORM_GABBRO"],
+        options: [
+          { label: "Compact", value: "0" },
+          { label: "Balanced", value: "1" },
+          { label: "Large", value: "2" }
+        ]
+      }
+    ]
+  },
+  {
+    type: "section",
+    items: [
+      {
+        type: "heading",
         defaultValue: "Motion & Battery"
       },
       {
@@ -72,6 +133,59 @@ module.exports = [
         messageKey: "BatterySaveMode",
         label: "Battery save mode",
         defaultValue: false
+      }
+    ]
+  },
+  {
+    type: "section",
+    items: [
+      {
+        type: "heading",
+        defaultValue: "Footer Visibility"
+      },
+      {
+        type: "toggle",
+        messageKey: "ShowLocation",
+        label: "Show city name",
+        defaultValue: true
+      },
+      {
+        type: "toggle",
+        messageKey: "ShowAltitude",
+        label: "Show altitude",
+        defaultValue: true
+      }
+    ]
+  },
+  {
+    type: "section",
+    items: [
+      {
+        type: "heading",
+        defaultValue: "Weather (Open-Meteo)"
+      },
+      {
+        type: "toggle",
+        messageKey: "WeatherEnabled",
+        label: "Enable weather",
+        defaultValue: false
+      },
+      {
+        type: "toggle",
+        messageKey: "WeatherUnitFahrenheit",
+        label: "Use Fahrenheit",
+        defaultValue: true
+      },
+      {
+        type: "select",
+        messageKey: "WeatherDetailLevel",
+        label: "Weather detail",
+        defaultValue: "1",
+        options: [
+          { label: "Off", value: "0" },
+          { label: "Basic", value: "1" },
+          { label: "Expanded", value: "2" }
+        ]
       }
     ]
   },
