@@ -73,7 +73,10 @@
       "DebugBenchmark",
       "CityName",
       "ReloadFaceToken",
-      "RefreshRequest"
+      "RefreshRequest",
+      "TimeFormat",
+      "ShowDate",
+      "ShowBattery"
     ],
     "resources": {
       "media": []

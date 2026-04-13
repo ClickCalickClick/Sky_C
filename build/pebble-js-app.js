@@ -1058,6 +1058,21 @@
 	        parsed = {};
 	    }
 	
+	    var totalLines = 0;
+	    if (parsed.ShowLocation) totalLines++;
+	    if (parsed.ShowAltitude) totalLines++;
+	    if (parsed.WeatherEnabled) totalLines++;
+	    if (parsed.ShowSolarPhase) totalLines++;
+	    if (parsed.ShowNextPhaseCountdown) totalLines++;
+	    if (parsed.ShowDate) totalLines++;
+	    if (parsed.ShowBattery) totalLines++;
+	
+	    if (totalLines >= 4) {
+	        parsed.TimeSizeBasalt = "0"; // Compact
+	        parsed.TimeSizeChalk = "0"; // Compact
+	        localStorage.setItem('clay-settings', JSON.stringify(parsed));
+	    }
+	
 	    saveSettings(parsed);
 	    requestAndSendSolar("settings-updated");
 	}
@@ -1494,7 +1509,7 @@
 /* 6 */
 /***/ (function(module, exports) {
 
-	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10048,"ComputedAtEpoch":10008,"CurrentSolarPhaseId":10034,"CustomLatitudeE6":10032,"CustomLocationEnabled":10031,"CustomLongitudeE6":10033,"DebugBenchmark":10047,"DevDateTime":10040,"DevLatitude":10038,"DevLatitudeE6":10041,"DevLongitude":10039,"DevLongitudeE6":10042,"DevModeEnabled":10037,"DevReferenceEpoch":10043,"DevShowDebugOverlay":10046,"DevSweepCycleSeconds":10045,"DevSweepEnabled":10044,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"NextSolarPhaseEpoch":10036,"NextSolarPhaseId":10035,"ProgressPercent":10001,"RefreshRequest":10050,"ReloadFaceToken":10049,"ShowAltitude":10018,"ShowLocation":10017,"ShowNextPhaseCountdown":10020,"ShowSolarPhase":10019,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10026,"WeatherCode":10027,"WeatherDetailLevel":10023,"WeatherEnabled":10021,"WeatherPrecipX100":10029,"WeatherStatus":10024,"WeatherTempX10":10025,"WeatherUnitFahrenheit":10022,"WeatherUpdatedEpoch":10030,"WeatherWindX10":10028}
+	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10048,"ComputedAtEpoch":10008,"CurrentSolarPhaseId":10034,"CustomLatitudeE6":10032,"CustomLocationEnabled":10031,"CustomLongitudeE6":10033,"DebugBenchmark":10047,"DevDateTime":10040,"DevLatitude":10038,"DevLatitudeE6":10041,"DevLongitude":10039,"DevLongitudeE6":10042,"DevModeEnabled":10037,"DevReferenceEpoch":10043,"DevShowDebugOverlay":10046,"DevSweepCycleSeconds":10045,"DevSweepEnabled":10044,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"NextSolarPhaseEpoch":10036,"NextSolarPhaseId":10035,"ProgressPercent":10001,"RefreshRequest":10050,"ReloadFaceToken":10049,"ShowAltitude":10018,"ShowBattery":10053,"ShowDate":10052,"ShowLocation":10017,"ShowNextPhaseCountdown":10020,"ShowSolarPhase":10019,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeFormat":10051,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10026,"WeatherCode":10027,"WeatherDetailLevel":10023,"WeatherEnabled":10021,"WeatherPrecipX100":10029,"WeatherStatus":10024,"WeatherTempX10":10025,"WeatherUnitFahrenheit":10022,"WeatherUpdatedEpoch":10030,"WeatherWindX10":10028}
 
 /***/ }),
 /* 7 */
@@ -1515,6 +1530,17 @@
 	      {
 	        type: "heading",
 	        defaultValue: "Time Readability"
+	      },
+	      {
+	        type: "select",
+	        messageKey: "TimeFormat",
+	        label: "Time format",
+	        defaultValue: "0",
+	        options: [
+	          { label: "Watch Default", value: "0" },
+	          { label: "12-hour", value: "1" },
+	          { label: "24-hour/Military", value: "2" }
+	        ]
 	      },
 	      {
 	        type: "select",
@@ -1696,6 +1722,18 @@
 	        messageKey: "ShowNextPhaseCountdown",
 	        label: "Show Next Phase Countdown",
 	        defaultValue: true
+	      },
+	      {
+	        type: "toggle",
+	        messageKey: "ShowDate",
+	        label: "Show Date",
+	        defaultValue: true
+	      },
+	      {
+	        type: "toggle",
+	        messageKey: "ShowBattery",
+	        label: "Show Battery %",
+	        defaultValue: false
 	      }
 	    ]
 	  },

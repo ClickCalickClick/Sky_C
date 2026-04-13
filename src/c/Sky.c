@@ -58,11 +58,13 @@ typedef struct {
 typedef struct {
   int8_t altitude;
   Rgb top;
+  Rgb mid;
   Rgb bottom;
 } AtmosphereBand;
 
 typedef struct {
   Rgb top;
+  Rgb mid;
   Rgb bottom;
 } Palette;
 
@@ -148,15 +150,18 @@ typedef struct {
   int32_t current_solar_phase_id;
   int32_t next_solar_phase_id;
   int32_t next_solar_phase_epoch;
+  int32_t time_format;
+  int32_t show_date;
+  int32_t show_battery;
 } AppState;
 
 static const AtmosphereBand s_atmosphere[] = {
-  { -18, {8, 8, 26}, {40, 54, 110} },
-  { -6, {26, 23, 66}, {58, 41, 108} },
-  { -2, {96, 55, 118}, {196, 70, 130} },
-  { 2, {238, 116, 60}, {255, 113, 114} },
-  { 10, {255, 189, 98}, {255, 151, 80} },
-  { 20, {118, 190, 255}, {187, 226, 255} },
+  { -18, {8, 8, 26},   {24, 30, 68},   {40, 54, 110} },
+  { -6,  {26, 23, 66},  {42, 32, 87},   {58, 41, 108} },
+  { -2,  {96, 55, 118}, {146, 62, 124}, {196, 70, 130} },
+  { 2,   {238, 116, 60},{246, 114, 87}, {255, 113, 114} },
+  { 10,  {255, 189, 98},{255, 170, 89}, {255, 151, 80} },
+  { 20,  {118, 190, 255},{152, 208, 255},{187, 226, 255} },
 };
 
 static const RenderProfile s_render_profiles[] = {
@@ -221,6 +226,9 @@ static AppState s_state = {
   .had_payload_once = false,
   .loading_hint_mode = 0,
   .city_name = "Chicago",
+  .time_format = 0,
+  .show_date = 1,
+  .show_battery = 0,
 };
 
 static int16_t prv_clamp_i16(int32_t value, int16_t min, int16_t max) {
@@ -516,17 +524,18 @@ static Rgb prv_interpolate_rgb(Rgb a, Rgb b, float t) {
   return out;
 }
 
-static void prv_widen_pair(int16_t a, int16_t b, float scale, int16_t *out_a, int16_t *out_b) {
+static void prv_widen_triple(int16_t a, int16_t m, int16_t b, float scale, int16_t *out_a, int16_t *out_m, int16_t *out_b) {
   float mid = ((float)a + (float)b) * 0.5f;
   *out_a = prv_clamp_i16(prv_round_i32(mid + (((float)a - mid) * scale)), 0, 255);
+  *out_m = prv_clamp_i16(prv_round_i32(mid + (((float)m - mid) * scale)), 0, 255);
   *out_b = prv_clamp_i16(prv_round_i32(mid + (((float)b - mid) * scale)), 0, 255);
 }
 
 static Palette prv_widen_palette_contrast(Palette base, float scale) {
   Palette out = base;
-  prv_widen_pair(base.top.r, base.bottom.r, scale, &out.top.r, &out.bottom.r);
-  prv_widen_pair(base.top.g, base.bottom.g, scale, &out.top.g, &out.bottom.g);
-  prv_widen_pair(base.top.b, base.bottom.b, scale, &out.top.b, &out.bottom.b);
+  prv_widen_triple(base.top.r, base.mid.r, base.bottom.r, scale, &out.top.r, &out.mid.r, &out.bottom.r);
+  prv_widen_triple(base.top.g, base.mid.g, base.bottom.g, scale, &out.top.g, &out.mid.g, &out.bottom.g);
+  prv_widen_triple(base.top.b, base.mid.b, base.bottom.b, scale, &out.top.b, &out.mid.b, &out.bottom.b);
   return out;
 }
 
@@ -543,6 +552,10 @@ static Palette prv_enhance_daylight_palette(Palette base, float altitude_deg, co
   out.top.r = prv_clamp_i16(out.top.r - prv_round_i32(26.0f * strength * shift_scale), 0, 255);
   out.top.g = prv_clamp_i16(out.top.g - prv_round_i32(18.0f * strength * shift_scale), 0, 255);
   out.top.b = prv_clamp_i16(out.top.b + prv_round_i32(10.0f * strength * shift_scale), 0, 255);
+
+  out.mid.r = prv_clamp_i16(out.mid.r - prv_round_i32(4.0f * strength * shift_scale), 0, 255);
+  out.mid.g = prv_clamp_i16(out.mid.g - prv_round_i32(2.0f * strength * shift_scale), 0, 255);
+  out.mid.b = prv_clamp_i16(out.mid.b + prv_round_i32(8.0f * strength * shift_scale), 0, 255);
 
   out.bottom.r = prv_clamp_i16(out.bottom.r + prv_round_i32(18.0f * strength * shift_scale), 0, 255);
   out.bottom.g = prv_clamp_i16(out.bottom.g + prv_round_i32(14.0f * strength * shift_scale), 0, 255);
@@ -569,6 +582,10 @@ static Palette prv_apply_phase_theme(Palette base, float altitude_deg) {
   base.top.r = prv_clamp_i16(base.top.r + prv_round_i32((-7.0f * deep_night) + (7.0f * sunrise_band) + (3.0f * variation)), 0, 255);
   base.top.g = prv_clamp_i16(base.top.g + prv_round_i32((5.0f * deep_night) + (4.0f * golden_band) + (5.0f * midday)), 0, 255);
   base.top.b = prv_clamp_i16(base.top.b + prv_round_i32((15.0f * deep_night) + (11.0f * blue_hour) + (8.0f * midday) - (4.0f * sunrise_band)), 0, 255);
+
+  base.mid.r = prv_clamp_i16(base.mid.r + prv_round_i32((2.0f * deep_night) + (9.0f * sunrise_band) + (4.0f * golden_band) - (2.5f * midday) + (3.5f * variation)), 0, 255);
+  base.mid.g = prv_clamp_i16(base.mid.g + prv_round_i32((2.5f * deep_night) + (3.0f * golden_band) + (4.5f * midday)), 0, 255);
+  base.mid.b = prv_clamp_i16(base.mid.b + prv_round_i32((11.5f * deep_night) + (10.5f * blue_hour) + (8.0f * midday) - (5.0f * sunrise_band)), 0, 255);
 
   base.bottom.r = prv_clamp_i16(base.bottom.r + prv_round_i32((11.0f * sunrise_band) + (8.0f * golden_band) - (5.0f * midday) + (4.0f * variation)), 0, 255);
   base.bottom.g = prv_clamp_i16(base.bottom.g + prv_round_i32((6.0f * golden_band) + (4.0f * midday)), 0, 255);
@@ -631,6 +648,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
 
   if (altitude_deg <= s_atmosphere[0].altitude) {
     out.top = s_atmosphere[0].top;
+    out.mid = s_atmosphere[0].mid;
     out.bottom = s_atmosphere[0].bottom;
     out = prv_enhance_daylight_palette(out, altitude_deg, profile);
     out = prv_apply_phase_theme(out, altitude_deg);
@@ -642,6 +660,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
     float daylight_strength = prv_clampf((altitude_deg - (float)max_band->altitude) / 35.0f, 0.0f, 1.0f);
     float contrast_scale = 1.0f + (daylight_strength * 0.45f * profile->gradient_widen_mult);
     out.top = max_band->top;
+    out.mid = max_band->mid;
     out.bottom = max_band->bottom;
     out = prv_widen_palette_contrast(out, contrast_scale);
     out = prv_enhance_daylight_palette(out, altitude_deg, profile);
@@ -656,6 +675,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
       float range = (float)(high->altitude - low->altitude);
       float t = (altitude_deg - (float)low->altitude) / (range <= 0.0f ? 1.0f : range);
       out.top = prv_interpolate_rgb(low->top, high->top, t);
+      out.mid = prv_interpolate_rgb(low->mid, high->mid, t);
       out.bottom = prv_interpolate_rgb(low->bottom, high->bottom, t);
       out = prv_enhance_daylight_palette(out, altitude_deg, profile);
       out = prv_apply_phase_theme(out, altitude_deg);
@@ -664,6 +684,7 @@ static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile 
   }
 
   out.top = s_atmosphere[0].top;
+  out.mid = s_atmosphere[0].mid;
   out.bottom = s_atmosphere[0].bottom;
   out = prv_enhance_daylight_palette(out, altitude_deg, profile);
   out = prv_apply_phase_theme(out, altitude_deg);
@@ -820,9 +841,17 @@ static Rgb prv_sample_gradient_color(Palette palette, GRect bounds, uint32_t now
   }
 
   Rgb color;
-  color.r = prv_lerp_i16(palette.top.r, palette.bottom.r, factor);
-  color.g = prv_lerp_i16(palette.top.g, palette.bottom.g, factor);
-  color.b = prv_lerp_i16(palette.top.b, palette.bottom.b, factor);
+  if (factor <= 0.5f) {
+    float f2 = factor * 2.0f;
+    color.r = prv_lerp_i16(palette.top.r, palette.mid.r, f2);
+    color.g = prv_lerp_i16(palette.top.g, palette.mid.g, f2);
+    color.b = prv_lerp_i16(palette.top.b, palette.mid.b, f2);
+  } else {
+    float f2 = (factor - 0.5f) * 2.0f;
+    color.r = prv_lerp_i16(palette.mid.r, palette.bottom.r, f2);
+    color.g = prv_lerp_i16(palette.mid.g, palette.bottom.g, f2);
+    color.b = prv_lerp_i16(palette.mid.b, palette.bottom.b, f2);
+  }
   return color;
 }
 
@@ -1330,9 +1359,17 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
       }
 
       Rgb color;
-      color.r = prv_lerp_i16(palette.top.r, palette.bottom.r, factor);
-      color.g = prv_lerp_i16(palette.top.g, palette.bottom.g, factor);
-      color.b = prv_lerp_i16(palette.top.b, palette.bottom.b, factor);
+      if (factor <= 0.5f) {
+        float f2 = factor * 2.0f;
+        color.r = prv_lerp_i16(palette.top.r, palette.mid.r, f2);
+        color.g = prv_lerp_i16(palette.top.g, palette.mid.g, f2);
+        color.b = prv_lerp_i16(palette.top.b, palette.mid.b, f2);
+      } else {
+        float f2 = (factor - 0.5f) * 2.0f;
+        color.r = prv_lerp_i16(palette.mid.r, palette.bottom.r, f2);
+        color.g = prv_lerp_i16(palette.mid.g, palette.bottom.g, f2);
+        color.b = prv_lerp_i16(palette.mid.b, palette.bottom.b, f2);
+      }
 
       graphics_context_set_fill_color(ctx, prv_make_color_rgb(color));
       graphics_fill_rect(ctx, GRect(x, y, step, step), 0, GCornerNone);
@@ -1397,13 +1434,26 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
 
   time_t now = time(NULL);
   struct tm *time_info = localtime(&now);
-  int hours = time_info->tm_hour % 12;
-  if (hours == 0) {
-    hours = 12;
+  
+  bool is_24h = false;
+  if (s_state.time_format == 1) { // 12-hour
+    is_24h = false;
+  } else if (s_state.time_format == 2) { // 24-hour
+    is_24h = true;
+  } else { // Watch Default
+    is_24h = clock_is_24h_style();
   }
 
   char time_text[8];
-  snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
+  if (is_24h) {
+    snprintf(time_text, sizeof(time_text), "%02d:%02d", time_info->tm_hour, time_info->tm_min);
+  } else {
+    int hours = time_info->tm_hour % 12;
+    if (hours == 0) {
+      hours = 12;
+    }
+    snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
+  }
 
   int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
   GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
@@ -1447,6 +1497,28 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
     }
   }
 
+  char date_text[32];
+  date_text[0] = '\0';
+  if (s_state.show_date != 0) {
+    strftime(date_text, sizeof(date_text), "%a, %b %e", time_info);
+  }
+
+  char battery_text[16];
+  battery_text[0] = '\0';
+  if (s_state.show_battery != 0) {
+    snprintf(battery_text, sizeof(battery_text), "Bat: %d%%", battery_state_service_peek().charge_percent);
+  }
+
+  const char *active_lines[7];
+  int16_t info_line_count = 0;
+  if (location_text[0] != '\0') active_lines[info_line_count++] = location_text;
+  if (altitude_text[0] != '\0') active_lines[info_line_count++] = altitude_text;
+  if (weather_text[0] != '\0') active_lines[info_line_count++] = weather_text;
+  if (solar_phase_text[0] != '\0') active_lines[info_line_count++] = solar_phase_text;
+  if (next_phase_text[0] != '\0') active_lines[info_line_count++] = next_phase_text;
+  if (date_text[0] != '\0') active_lines[info_line_count++] = date_text;
+  if (battery_text[0] != '\0') active_lines[info_line_count++] = battery_text;
+
   int16_t side_pad = prv_clamp_i16(bounds.size.w / 18, 4, 16);
   int16_t top_bottom_pad = prv_clamp_i16(bounds.size.h / 12, 8, 26);
   int16_t content_w = bounds.size.w - (2 * side_pad);
@@ -1461,28 +1533,6 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   int16_t line_gap_info = prv_clamp_i16(bounds.size.h / 48, 1, 6);
 
   GSize time_size = prv_text_size(time_text, time_font, content_w, bounds.size.h);
-  bool show_location_line = (location_text[0] != '\0');
-  bool show_altitude_line = (altitude_text[0] != '\0');
-  bool show_weather_line = (weather_text[0] != '\0');
-  bool show_solar_phase_line = (solar_phase_text[0] != '\0');
-  bool show_next_phase_countdown_line = (next_phase_text[0] != '\0');
-
-  int16_t info_line_count = 0;
-  if (show_location_line) {
-    info_line_count += 1;
-  }
-  if (show_altitude_line) {
-    info_line_count += 1;
-  }
-  if (show_weather_line) {
-    info_line_count += 1;
-  }
-  if (show_solar_phase_line) {
-    info_line_count += 1;
-  }
-  if (show_next_phase_countdown_line) {
-    info_line_count += 1;
-  }
 
   int16_t block_h = time_size.h;
   if (info_line_count > 0) {
@@ -1519,61 +1569,15 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
     y_cursor += line_gap_main;
   }
 
-  if (show_location_line) {
-    int16_t location_center_y = y_cursor + (info_line_h / 2);
-    TextStyle location_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, location_center_y);
-    prv_draw_styled_text(ctx, location_text, info_font, location_style,
+  for (int i = 0; i < info_line_count; i++) {
+    int16_t center_y = y_cursor + (info_line_h / 2);
+    TextStyle style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, center_y);
+    prv_draw_styled_text(ctx, active_lines[i], info_font, style,
                          side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
     y_cursor += info_line_h;
-  }
-
-  if (show_location_line && (show_altitude_line || show_weather_line)) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_altitude_line) {
-    int16_t altitude_center_y = y_cursor + (info_line_h / 2);
-    TextStyle altitude_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, altitude_center_y);
-    prv_draw_styled_text(ctx, altitude_text, info_font, altitude_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if ((show_location_line || show_altitude_line) && show_weather_line) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_weather_line) {
-    int16_t weather_center_y = y_cursor + (info_line_h / 2);
-    TextStyle weather_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, weather_center_y);
-    prv_draw_styled_text(ctx, weather_text, info_font, weather_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if (show_weather_line && (show_solar_phase_line || show_next_phase_countdown_line)) {
-    y_cursor += line_gap_info;
-  } else if (!show_weather_line && (show_location_line || show_altitude_line) && (show_solar_phase_line || show_next_phase_countdown_line)) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_solar_phase_line) {
-    int16_t solar_center_y = y_cursor + (info_line_h / 2);
-    TextStyle solar_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, solar_center_y);
-    prv_draw_styled_text(ctx, solar_phase_text, info_font, solar_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if (show_solar_phase_line && show_next_phase_countdown_line) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_next_phase_countdown_line) {
-    int16_t next_center_y = y_cursor + (info_line_h / 2);
-    TextStyle next_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, next_center_y);
-    prv_draw_styled_text(ctx, next_phase_text, info_font, next_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    if (i < info_line_count - 1) {
+      y_cursor += line_gap_info;
+    }
   }
 
   if (s_state.dev_mode_enabled && s_state.dev_show_debug_overlay) {
@@ -1583,7 +1587,7 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
     char dev_text[48];
     snprintf(dev_text, sizeof(dev_text), "%s az %s", s_state.dev_sweep_enabled ? "SWEEP" : "DEV", az_text);
 
-    Rgb dev_sample = prv_interpolate_rgb(palette.top, palette.bottom, 0.2f);
+    Rgb dev_sample = prv_interpolate_rgb(palette.top, palette.mid, 0.4f);
     TextStyle dev_style = prv_pick_text_style(dev_sample);
     prv_draw_styled_text(ctx, dev_text, s_info_font_small, dev_style,
                          4, 4, bounds.size.w - 8, 18, GTextAlignmentLeft);
@@ -1689,6 +1693,24 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   Tuple *override_mode = dict_find(iter, MESSAGE_KEY_TextOverrideMode);
   if (override_mode) {
     s_state.text_override_mode = prv_clamp_i32(prv_tuple_to_i32(override_mode), 0, 3);
+    loading_changed = true;
+  }
+
+  Tuple *time_format = dict_find(iter, MESSAGE_KEY_TimeFormat);
+  if (time_format) {
+    s_state.time_format = prv_clamp_i32(prv_tuple_to_i32(time_format), 0, 2);
+    loading_changed = true;
+  }
+
+  Tuple *show_date = dict_find(iter, MESSAGE_KEY_ShowDate);
+  if (show_date) {
+    s_state.show_date = prv_tuple_to_i32(show_date) != 0 ? 1 : 0;
+    loading_changed = true;
+  }
+
+  Tuple *show_battery = dict_find(iter, MESSAGE_KEY_ShowBattery);
+  if (show_battery) {
+    s_state.show_battery = prv_tuple_to_i32(show_battery) != 0 ? 1 : 0;
     loading_changed = true;
   }
 

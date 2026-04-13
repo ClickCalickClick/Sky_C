@@ -962,6 +962,21 @@ function applyClaySettingsFromResponse(response) {
         parsed = {};
     }
 
+    var totalLines = 0;
+    if (parsed.ShowLocation) totalLines++;
+    if (parsed.ShowAltitude) totalLines++;
+    if (parsed.WeatherEnabled) totalLines++;
+    if (parsed.ShowSolarPhase) totalLines++;
+    if (parsed.ShowNextPhaseCountdown) totalLines++;
+    if (parsed.ShowDate) totalLines++;
+    if (parsed.ShowBattery) totalLines++;
+
+    if (totalLines >= 4) {
+        parsed.TimeSizeBasalt = "0"; // Compact
+        parsed.TimeSizeChalk = "0"; // Compact
+        localStorage.setItem('clay-settings', JSON.stringify(parsed));
+    }
+
     saveSettings(parsed);
     requestAndSendSolar("settings-updated");
 }

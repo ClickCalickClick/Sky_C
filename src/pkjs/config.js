@@ -16,6 +16,17 @@ module.exports = [
       },
       {
         type: "select",
+        messageKey: "TimeFormat",
+        label: "Time format",
+        defaultValue: "0",
+        options: [
+          { label: "Watch Default", value: "0" },
+          { label: "12-hour", value: "1" },
+          { label: "24-hour/Military", value: "2" }
+        ]
+      },
+      {
+        type: "select",
         messageKey: "TextOverrideMode",
         label: "Text Style",
         defaultValue: "0",
@@ -194,6 +205,18 @@ module.exports = [
         messageKey: "ShowNextPhaseCountdown",
         label: "Show Next Phase Countdown",
         defaultValue: true
+      },
+      {
+        type: "toggle",
+        messageKey: "ShowDate",
+        label: "Show Date",
+        defaultValue: true
+      },
+      {
+        type: "toggle",
+        messageKey: "ShowBattery",
+        label: "Show Battery %",
+        defaultValue: false
       }
     ]
   },

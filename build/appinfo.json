@@ -63,7 +63,10 @@
         "DebugBenchmark": 10047,
         "CityName": 10048,
         "ReloadFaceToken": 10049,
-        "RefreshRequest": 10050
+        "RefreshRequest": 10050,
+        "TimeFormat": 10051,
+        "ShowDate": 10052,
+        "ShowBattery": 10053
     },
     "resources": {
         "media": []
@@ -124,7 +127,10 @@
         "DebugBenchmark": 10047,
         "CityName": 10048,
         "ReloadFaceToken": 10049,
-        "RefreshRequest": 10050
+        "RefreshRequest": 10050,
+        "TimeFormat": 10051,
+        "ShowDate": 10052,
+        "ShowBattery": 10053
     },
     "capabilities": [
         "configurable"
