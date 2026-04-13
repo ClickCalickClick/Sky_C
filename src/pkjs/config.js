@@ -182,6 +182,18 @@ module.exports = [
         messageKey: "ShowAltitude",
         label: "Show altitude",
         defaultValue: true
+      },
+      {
+        type: "toggle",
+        messageKey: "ShowSolarPhase",
+        label: "Show Solar Phase",
+        defaultValue: true
+      },
+      {
+        type: "toggle",
+        messageKey: "ShowNextPhaseCountdown",
+        label: "Show Next Phase Countdown",
+        defaultValue: true
       }
     ]
   },

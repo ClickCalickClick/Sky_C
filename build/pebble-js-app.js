@@ -290,6 +290,8 @@
 	        TimeSizeGabbro: "1",
 	        ShowLocation: true,
 	        ShowAltitude: true,
+	        ShowSolarPhase: true,
+	        ShowNextPhaseCountdown: true,
 	        WeatherEnabled: true,
 	        WeatherUnitFahrenheit: true,
 	        WeatherDetailLevel: "1",
@@ -462,6 +464,8 @@
 	        TimeSizeGabbro: clamp(parseNumber(settings.TimeSizeGabbro, 1) | 0, 0, 2),
 	        ShowLocation: toBoolInt(settings.ShowLocation),
 	        ShowAltitude: toBoolInt(settings.ShowAltitude),
+	        ShowSolarPhase: toBoolInt(settings.ShowSolarPhase),
+	        ShowNextPhaseCountdown: toBoolInt(settings.ShowNextPhaseCountdown),
 	        WeatherEnabled: toBoolInt(settings.WeatherEnabled),
 	        WeatherUnitFahrenheit: toBoolInt(settings.WeatherUnitFahrenheit),
 	        WeatherDetailLevel: clamp(parseNumber(settings.WeatherDetailLevel, 1) | 0, 0, 2),
@@ -578,6 +582,67 @@
 	    );
 	}
 	
+	function getSolarPhases(lat, lon, now) {
+	    var thresholds = [-18, -6, -2, 2, 10, 20, 35];
+	    function getAlt(d) {
+	        return SunCalc.getPosition(d, lat, lon).altitude * 180 / Math.PI;
+	    }
+	    
+	    var currentPhaseId = null;
+	    var searchAltBack = getAlt(now);
+	    for (var mb = 0; mb <= 2880; mb++) {
+	        var tb = new Date(now.getTime() - mb * 60000);
+	        var altb = getAlt(tb);
+	        for (var k = 0; k < thresholds.length; k++) {
+	            var th = thresholds[k];
+	            if (altb < th && searchAltBack >= th) {
+	                currentPhaseId = k + 1 > 6 ? 6 : k + 1;
+	                break;
+	            }
+	            if (altb > th && searchAltBack <= th) {
+	                currentPhaseId = 7 + (thresholds.length - 1 - k);
+	                break;
+	            }
+	        }
+	        if (currentPhaseId !== null) {
+	            break;
+	        }
+	        searchAltBack = altb;
+	    }
+	    
+	    var nextPhaseId = null;
+	    var nextEpoch = null;
+	    var searchAltFwd = getAlt(now);
+	    for (var mf = 1; mf <= 2880; mf++) {
+	        var tf = new Date(now.getTime() + mf * 60000);
+	        var altf = getAlt(tf);
+	        
+	        for (var j = 0; j < thresholds.length; j++) {
+	            var th2 = thresholds[j];
+	            if (searchAltFwd < th2 && altf >= th2) {
+	                nextPhaseId = j + 1 > 6 ? 6 : j + 1;
+	                nextEpoch = Math.floor(tf.getTime() / 1000);
+	                break;
+	            }
+	            if (searchAltFwd > th2 && altf <= th2) {
+	                nextPhaseId = 7 + (thresholds.length - 1 - j);
+	                nextEpoch = Math.floor(tf.getTime() / 1000);
+	                break;
+	            }
+	        }
+	        if (nextPhaseId !== null) {
+	            break;
+	        }
+	        searchAltFwd = altf;
+	    }
+	    
+	    return {
+	        CurrentSolarPhaseId: currentPhaseId !== null ? currentPhaseId : 0,
+	        NextSolarPhaseId: nextPhaseId !== null ? nextPhaseId : 0,
+	        NextSolarPhaseEpoch: nextEpoch !== null ? nextEpoch : 0
+	    };
+	}
+	
 	function computeSolarPayload(lat, lon, source, when) {
 	    var now = when || new Date();
 	    var position = SunCalc.getPosition(now, lat, lon);
@@ -585,6 +650,7 @@
 	    var azimuthDeg = ((rawAzimuthDeg + 180) % 360 + 360) % 360;
 	    var gradientAngleDeg = (azimuthDeg + 180) % 360;
 	    var altitudeDeg = (position.altitude * 180) / Math.PI;
+	    var phases = getSolarPhases(lat, lon, now);
 	
 	    return {
 	        SourceCode: source,
@@ -593,7 +659,12 @@
 	        AzimuthDegX100: Math.round(azimuthDeg * 100),
 	        AltitudeDegX100: Math.round(altitudeDeg * 100),
 	        GradientAngleDegX100: Math.round(gradientAngleDeg * 100),
-	        ComputedAtEpoch: Math.floor(now.getTime() / 1000)
+	        ComputedAtEpoch: Math.floor(now.getTime() / 1000),
+	        CurrentSolarPhaseId: phases.CurrentSolarPhaseId,
+	        NextSolarPhaseId: phases.NextSolarPhaseId,
+	        NextSolarPhaseEpoch: phases.NextSolarPhaseEpoch,
+	        ShowSolarPhase: settings.ShowSolarPhase ? 1 : 0,
+	        ShowNextPhaseCountdown: settings.ShowNextPhaseCountdown ? 1 : 0
 	    };
 	}
 	
@@ -605,6 +676,10 @@
 	    var altitudeDeg = DEV_SWEEP_ALT_MIN + (phase * (DEV_SWEEP_ALT_MAX - DEV_SWEEP_ALT_MIN));
 	    var azimuthDeg = (phase * 360 + 360) % 360;
 	    var gradientAngleDeg = (azimuthDeg + 180) % 360;
+	    
+	    // In dev sweep mode, we spoof phases based on sweep altitude directly
+	    var spoofNow = new Date(nowMs);
+	    var spoofPhases = getSolarPhases(lat, lon, spoofNow);
 	
 	    return {
 	        SourceCode: source,
@@ -613,7 +688,12 @@
 	        AzimuthDegX100: Math.round(azimuthDeg * 100),
 	        AltitudeDegX100: Math.round(altitudeDeg * 100),
 	        GradientAngleDegX100: Math.round(gradientAngleDeg * 100),
-	        ComputedAtEpoch: Math.floor(nowMs / 1000)
+	        ComputedAtEpoch: Math.floor(nowMs / 1000),
+	        CurrentSolarPhaseId: spoofPhases.CurrentSolarPhaseId,
+	        NextSolarPhaseId: spoofPhases.NextSolarPhaseId,
+	        NextSolarPhaseEpoch: spoofPhases.NextSolarPhaseEpoch,
+	        ShowSolarPhase: settings.ShowSolarPhase ? 1 : 0,
+	        ShowNextPhaseCountdown: settings.ShowNextPhaseCountdown ? 1 : 0
 	    };
 	}
 	
@@ -1414,7 +1494,7 @@
 /* 6 */
 /***/ (function(module, exports) {
 
-	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10043,"ComputedAtEpoch":10008,"CustomLatitudeE6":10030,"CustomLocationEnabled":10029,"CustomLongitudeE6":10031,"DebugBenchmark":10042,"DevDateTime":10035,"DevLatitude":10033,"DevLatitudeE6":10036,"DevLongitude":10034,"DevLongitudeE6":10037,"DevModeEnabled":10032,"DevReferenceEpoch":10038,"DevShowDebugOverlay":10041,"DevSweepCycleSeconds":10040,"DevSweepEnabled":10039,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"ProgressPercent":10001,"RefreshRequest":10045,"ReloadFaceToken":10044,"ShowAltitude":10018,"ShowLocation":10017,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10024,"WeatherCode":10025,"WeatherDetailLevel":10021,"WeatherEnabled":10019,"WeatherPrecipX100":10027,"WeatherStatus":10022,"WeatherTempX10":10023,"WeatherUnitFahrenheit":10020,"WeatherUpdatedEpoch":10028,"WeatherWindX10":10026}
+	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10048,"ComputedAtEpoch":10008,"CurrentSolarPhaseId":10034,"CustomLatitudeE6":10032,"CustomLocationEnabled":10031,"CustomLongitudeE6":10033,"DebugBenchmark":10047,"DevDateTime":10040,"DevLatitude":10038,"DevLatitudeE6":10041,"DevLongitude":10039,"DevLongitudeE6":10042,"DevModeEnabled":10037,"DevReferenceEpoch":10043,"DevShowDebugOverlay":10046,"DevSweepCycleSeconds":10045,"DevSweepEnabled":10044,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"NextSolarPhaseEpoch":10036,"NextSolarPhaseId":10035,"ProgressPercent":10001,"RefreshRequest":10050,"ReloadFaceToken":10049,"ShowAltitude":10018,"ShowLocation":10017,"ShowNextPhaseCountdown":10020,"ShowSolarPhase":10019,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10026,"WeatherCode":10027,"WeatherDetailLevel":10023,"WeatherEnabled":10021,"WeatherPrecipX100":10029,"WeatherStatus":10024,"WeatherTempX10":10025,"WeatherUnitFahrenheit":10022,"WeatherUpdatedEpoch":10030,"WeatherWindX10":10028}
 
 /***/ }),
 /* 7 */
@@ -1603,6 +1683,18 @@
 	        type: "toggle",
 	        messageKey: "ShowAltitude",
 	        label: "Show altitude",
+	        defaultValue: true
+	      },
+	      {
+	        type: "toggle",
+	        messageKey: "ShowSolarPhase",
+	        label: "Show Solar Phase",
+	        defaultValue: true
+	      },
+	      {
+	        type: "toggle",
+	        messageKey: "ShowNextPhaseCountdown",
+	        label: "Show Next Phase Countdown",
 	        defaultValue: true
 	      }
 	    ]
