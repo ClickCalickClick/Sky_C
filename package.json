@@ -40,10 +40,6 @@
       "TimeSizeChalk",
       "TimeSizeEmery",
       "TimeSizeGabbro",
-      "ShowLocation",
-      "ShowAltitude",
-      "ShowSolarPhase",
-      "ShowNextPhaseCountdown",
       "WeatherEnabled",
       "WeatherUnitFahrenheit",
       "WeatherDetailLevel",
@@ -75,8 +71,12 @@
       "ReloadFaceToken",
       "RefreshRequest",
       "TimeFormat",
-      "ShowDate",
-      "ShowBattery"
+      "FooterSlot1",
+      "FooterSlot2",
+      "FooterSlot3",
+      "FooterSlot4",
+      "FooterSlot5",
+      "FooterSlot6"
     ],
     "resources": {
       "media": []

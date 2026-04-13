@@ -180,58 +180,111 @@ module.exports = [
     items: [
       {
         type: "heading",
-        defaultValue: "Footer Visibility"
+        defaultValue: "Footer Layout"
       },
       {
-        type: "toggle",
-        messageKey: "ShowLocation",
-        label: "Show city name",
-        defaultValue: true
+        type: "text",
+        defaultValue: "Select layout for up to 6 footer lines. \"None\" skips the line."
       },
       {
-        type: "toggle",
-        messageKey: "ShowAltitude",
-        label: "Show altitude",
-        defaultValue: true
+        type: "select",
+        messageKey: "FooterSlot1",
+        label: "Slot 1 (Top)",
+        defaultValue: "1",
+        options: [
+          { label: "None", value: "0" },
+          { label: "Date", value: "1" },
+          { label: "City Name", value: "2" },
+          { label: "Weather", value: "3" },
+          { label: "Altitude", value: "4" },
+          { label: "Solar Phase", value: "5" },
+          { label: "Next Phase Countdown", value: "6" },
+          { label: "Battery", value: "7" }
+        ]
       },
       {
-        type: "toggle",
-        messageKey: "ShowSolarPhase",
-        label: "Show Solar Phase",
-        defaultValue: true
+        type: "select",
+        messageKey: "FooterSlot2",
+        label: "Slot 2",
+        defaultValue: "2",
+        options: [
+          { label: "None", value: "0" },
+          { label: "Date", value: "1" },
+          { label: "City Name", value: "2" },
+          { label: "Weather", value: "3" },
+          { label: "Altitude", value: "4" },
+          { label: "Solar Phase", value: "5" },
+          { label: "Next Phase Countdown", value: "6" },
+          { label: "Battery", value: "7" }
+        ]
       },
       {
-        type: "toggle",
-        messageKey: "ShowNextPhaseCountdown",
-        label: "Show Next Phase Countdown",
-        defaultValue: true
+        type: "select",
+        messageKey: "FooterSlot3",
+        label: "Slot 3",
+        defaultValue: "0",
+        options: [
+          { label: "None", value: "0" },
+          { label: "Date", value: "1" },
+          { label: "City Name", value: "2" },
+          { label: "Weather", value: "3" },
+          { label: "Altitude", value: "4" },
+          { label: "Solar Phase", value: "5" },
+          { label: "Next Phase Countdown", value: "6" },
+          { label: "Battery", value: "7" }
+        ]
       },
       {
-        type: "toggle",
-        messageKey: "ShowDate",
-        label: "Show Date",
-        defaultValue: true
+        type: "select",
+        messageKey: "FooterSlot4",
+        label: "Slot 4",
+        defaultValue: "0",
+        options: [
+          { label: "None", value: "0" },
+          { label: "Date", value: "1" },
+          { label: "City Name", value: "2" },
+          { label: "Weather", value: "3" },
+          { label: "Altitude", value: "4" },
+          { label: "Solar Phase", value: "5" },
+          { label: "Next Phase Countdown", value: "6" },
+          { label: "Battery", value: "7" }
+        ]
       },
       {
-        type: "toggle",
-        messageKey: "ShowBattery",
-        label: "Show Battery %",
-        defaultValue: false
-      }
-    ]
-  },
-  {
-    type: "section",
-    items: [
+        type: "select",
+        messageKey: "FooterSlot5",
+        label: "Slot 5",
+        defaultValue: "0",
+        options: [
+          { label: "None", value: "0" },
+          { label: "Date", value: "1" },
+          { label: "City Name", value: "2" },
+          { label: "Weather", value: "3" },
+          { label: "Altitude", value: "4" },
+          { label: "Solar Phase", value: "5" },
+          { label: "Next Phase Countdown", value: "6" },
+          { label: "Battery", value: "7" }
+        ]
+      },
+      {
+        type: "select",
+        messageKey: "FooterSlot6",
+        label: "Slot 6 (Bottom)",
+        defaultValue: "0",
+        options: [
+          { label: "None", value: "0" },
+          { label: "Date", value: "1" },
+          { label: "City Name", value: "2" },
+          { label: "Weather", value: "3" },
+          { label: "Altitude", value: "4" },
+          { label: "Solar Phase", value: "5" },
+          { label: "Next Phase Countdown", value: "6" },
+          { label: "Battery", value: "7" }
+        ]
+      },
       {
         type: "heading",
         defaultValue: "Weather (Open-Meteo)"
-      },
-      {
-        type: "toggle",
-        messageKey: "WeatherEnabled",
-        label: "Enable weather",
-        defaultValue: true
       },
       {
         type: "toggle",

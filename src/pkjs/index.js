@@ -1,6 +1,7 @@
 var SunCalc = require("suncalc");
 var Clay = require("@rebble/clay");
 var clayConfig = require("./config");
+var customClay = require("./clay-custom");
 
 var CHICAGO = { lat: 41.8781, lon: -87.6298 };
 var SETTINGS_KEY = "solar-gradient-settings-v1";
@@ -56,7 +57,7 @@ var KNOWN_CITIES = [
     { name: "Milwaukee", lat: 43.0389, lon: -87.9065 }
 ];
 
-var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
+var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
 var retryTimer = null;
 var autoUpdateTimer = null;
 var settings = loadSettings();
@@ -65,6 +66,26 @@ var weatherCache = loadWeatherCache();
 var outboxQueue = [];
 var outboxBusy = false;
 var outboxRetryTimer = null;
+var phaseRefreshTimer = null;
+
+function schedulePhaseRefreshAtEpoch(nextPhaseEpoch) {
+  if (phaseRefreshTimer) {
+    clearTimeout(phaseRefreshTimer);
+  }
+  if (!nextPhaseEpoch) return;
+
+  var now = Math.floor(Date.now() / 1000);
+  var delaySeconds = nextPhaseEpoch - now;
+  // Cap at 24 hours to prevent huge timeouts, 
+  // but it'll fire in mostly <12 hours anyway.
+  if (delaySeconds <= 0) return;
+  
+  var delayMs = delaySeconds * 1000 + 500; // Add 500ms safety buffer
+  phaseRefreshTimer = setTimeout(function() {
+    phaseRefreshTimer = null;
+    requestAndSendSolar("phase-boundary");
+  }, delayMs);
+}
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -192,11 +213,13 @@ function loadSettings() {
         TimeSizeChalk: "1",
         TimeSizeEmery: "1",
         TimeSizeGabbro: "1",
-        ShowLocation: true,
-        ShowAltitude: true,
-        ShowSolarPhase: true,
-        ShowNextPhaseCountdown: true,
-        WeatherEnabled: true,
+        FooterSlot1: "1",
+        FooterSlot2: "2",
+        FooterSlot3: "0",
+        FooterSlot4: "0",
+        FooterSlot5: "0",
+        FooterSlot6: "0",
+        TimeFormat: "0",
         WeatherUnitFahrenheit: true,
         WeatherDetailLevel: "1",
         ForceChicagoForTesting: false,
@@ -366,11 +389,21 @@ function normalizeStyleSettings() {
         TimeSizeChalk: clamp(parseNumber(settings.TimeSizeChalk, 1) | 0, 0, 2),
         TimeSizeEmery: clamp(parseNumber(settings.TimeSizeEmery, 1) | 0, 0, 2),
         TimeSizeGabbro: clamp(parseNumber(settings.TimeSizeGabbro, 1) | 0, 0, 2),
-        ShowLocation: toBoolInt(settings.ShowLocation),
-        ShowAltitude: toBoolInt(settings.ShowAltitude),
-        ShowSolarPhase: toBoolInt(settings.ShowSolarPhase),
-        ShowNextPhaseCountdown: toBoolInt(settings.ShowNextPhaseCountdown),
-        WeatherEnabled: toBoolInt(settings.WeatherEnabled),
+        TimeFormat: clamp(parseNumber(settings.TimeFormat, 0) | 0, 0, 2),
+        FooterSlot1: clamp(parseNumber(settings.FooterSlot1, 1) | 0, 0, 7),
+        FooterSlot2: clamp(parseNumber(settings.FooterSlot2, 2) | 0, 0, 7),
+        FooterSlot3: clamp(parseNumber(settings.FooterSlot3, 0) | 0, 0, 7),
+        FooterSlot4: clamp(parseNumber(settings.FooterSlot4, 0) | 0, 0, 7),
+        FooterSlot5: clamp(parseNumber(settings.FooterSlot5, 0) | 0, 0, 7),
+        FooterSlot6: clamp(parseNumber(settings.FooterSlot6, 0) | 0, 0, 7),
+        WeatherEnabled: (
+            parseNumber(settings.FooterSlot1, 0) === 3 ||
+            parseNumber(settings.FooterSlot2, 0) === 3 ||
+            parseNumber(settings.FooterSlot3, 0) === 3 ||
+            parseNumber(settings.FooterSlot4, 0) === 3 ||
+            parseNumber(settings.FooterSlot5, 0) === 3 ||
+            parseNumber(settings.FooterSlot6, 0) === 3
+        ) ? 1 : 0,
         WeatherUnitFahrenheit: toBoolInt(settings.WeatherUnitFahrenheit),
         WeatherDetailLevel: clamp(parseNumber(settings.WeatherDetailLevel, 1) | 0, 0, 2),
         CustomLocationEnabled: toBoolInt(settings.CustomLocationEnabled),
@@ -566,9 +599,7 @@ function computeSolarPayload(lat, lon, source, when) {
         ComputedAtEpoch: Math.floor(now.getTime() / 1000),
         CurrentSolarPhaseId: phases.CurrentSolarPhaseId,
         NextSolarPhaseId: phases.NextSolarPhaseId,
-        NextSolarPhaseEpoch: phases.NextSolarPhaseEpoch,
-        ShowSolarPhase: settings.ShowSolarPhase ? 1 : 0,
-        ShowNextPhaseCountdown: settings.ShowNextPhaseCountdown ? 1 : 0
+        NextSolarPhaseEpoch: phases.NextSolarPhaseEpoch
     };
 }
 
@@ -901,6 +932,7 @@ function requestAndSendSolar(reason) {
 
         console.log("[solar] dev payload city=" + payload.CityName + " lat=" + devLat.toFixed(4) + " lon=" + devLon.toFixed(4));
         cacheSolarPayload(payload);
+        schedulePhaseRefreshAtEpoch(payload.NextSolarPhaseEpoch);
         sendStatus(STATUS.sendingPayload, 88);
         sendAppMessage(payload, "solar-payload");
         sendSettingsToWatch();
@@ -918,6 +950,7 @@ function requestAndSendSolar(reason) {
         payload.CityName = location.source === SOURCE.chicago ? "Chicago" : nearestKnownCityName(location.lat, location.lon);
         console.log("[solar] initial payload source=" + location.source + " city=" + payload.CityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
         cacheSolarPayload(payload);
+        schedulePhaseRefreshAtEpoch(payload.NextSolarPhaseEpoch);
         sendStatus(STATUS.sendingPayload, 82);
         sendAppMessage(payload, "solar-payload-initial");
         sendSettingsToWatch();

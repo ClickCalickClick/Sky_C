@@ -97,6 +97,7 @@
 	var SunCalc = __webpack_require__(3);
 	var Clay = __webpack_require__(4);
 	var clayConfig = __webpack_require__(7);
+	var customClay = __webpack_require__(8);
 	
 	var CHICAGO = { lat: 41.8781, lon: -87.6298 };
 	var SETTINGS_KEY = "solar-gradient-settings-v1";
@@ -152,7 +153,7 @@
 	    { name: "Milwaukee", lat: 43.0389, lon: -87.9065 }
 	];
 	
-	var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
+	var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
 	var retryTimer = null;
 	var autoUpdateTimer = null;
 	var settings = loadSettings();
@@ -161,6 +162,26 @@
 	var outboxQueue = [];
 	var outboxBusy = false;
 	var outboxRetryTimer = null;
+	var phaseRefreshTimer = null;
+	
+	function schedulePhaseRefreshAtEpoch(nextPhaseEpoch) {
+	  if (phaseRefreshTimer) {
+	    clearTimeout(phaseRefreshTimer);
+	  }
+	  if (!nextPhaseEpoch) return;
+	
+	  var now = Math.floor(Date.now() / 1000);
+	  var delaySeconds = nextPhaseEpoch - now;
+	  // Cap at 24 hours to prevent huge timeouts, 
+	  // but it'll fire in mostly <12 hours anyway.
+	  if (delaySeconds <= 0) return;
+	  
+	  var delayMs = delaySeconds * 1000 + 500; // Add 500ms safety buffer
+	  phaseRefreshTimer = setTimeout(function() {
+	    phaseRefreshTimer = null;
+	    requestAndSendSolar("phase-boundary");
+	  }, delayMs);
+	}
 	
 	function clamp(value, min, max) {
 	    return Math.max(min, Math.min(max, value));
@@ -288,11 +309,13 @@
 	        TimeSizeChalk: "1",
 	        TimeSizeEmery: "1",
 	        TimeSizeGabbro: "1",
-	        ShowLocation: true,
-	        ShowAltitude: true,
-	        ShowSolarPhase: true,
-	        ShowNextPhaseCountdown: true,
-	        WeatherEnabled: true,
+	        FooterSlot1: "1",
+	        FooterSlot2: "2",
+	        FooterSlot3: "0",
+	        FooterSlot4: "0",
+	        FooterSlot5: "0",
+	        FooterSlot6: "0",
+	        TimeFormat: "0",
 	        WeatherUnitFahrenheit: true,
 	        WeatherDetailLevel: "1",
 	        ForceChicagoForTesting: false,
@@ -462,11 +485,21 @@
 	        TimeSizeChalk: clamp(parseNumber(settings.TimeSizeChalk, 1) | 0, 0, 2),
 	        TimeSizeEmery: clamp(parseNumber(settings.TimeSizeEmery, 1) | 0, 0, 2),
 	        TimeSizeGabbro: clamp(parseNumber(settings.TimeSizeGabbro, 1) | 0, 0, 2),
-	        ShowLocation: toBoolInt(settings.ShowLocation),
-	        ShowAltitude: toBoolInt(settings.ShowAltitude),
-	        ShowSolarPhase: toBoolInt(settings.ShowSolarPhase),
-	        ShowNextPhaseCountdown: toBoolInt(settings.ShowNextPhaseCountdown),
-	        WeatherEnabled: toBoolInt(settings.WeatherEnabled),
+	        TimeFormat: clamp(parseNumber(settings.TimeFormat, 0) | 0, 0, 2),
+	        FooterSlot1: clamp(parseNumber(settings.FooterSlot1, 1) | 0, 0, 7),
+	        FooterSlot2: clamp(parseNumber(settings.FooterSlot2, 2) | 0, 0, 7),
+	        FooterSlot3: clamp(parseNumber(settings.FooterSlot3, 0) | 0, 0, 7),
+	        FooterSlot4: clamp(parseNumber(settings.FooterSlot4, 0) | 0, 0, 7),
+	        FooterSlot5: clamp(parseNumber(settings.FooterSlot5, 0) | 0, 0, 7),
+	        FooterSlot6: clamp(parseNumber(settings.FooterSlot6, 0) | 0, 0, 7),
+	        WeatherEnabled: (
+	            parseNumber(settings.FooterSlot1, 0) === 3 ||
+	            parseNumber(settings.FooterSlot2, 0) === 3 ||
+	            parseNumber(settings.FooterSlot3, 0) === 3 ||
+	            parseNumber(settings.FooterSlot4, 0) === 3 ||
+	            parseNumber(settings.FooterSlot5, 0) === 3 ||
+	            parseNumber(settings.FooterSlot6, 0) === 3
+	        ) ? 1 : 0,
 	        WeatherUnitFahrenheit: toBoolInt(settings.WeatherUnitFahrenheit),
 	        WeatherDetailLevel: clamp(parseNumber(settings.WeatherDetailLevel, 1) | 0, 0, 2),
 	        CustomLocationEnabled: toBoolInt(settings.CustomLocationEnabled),
@@ -662,9 +695,7 @@
 	        ComputedAtEpoch: Math.floor(now.getTime() / 1000),
 	        CurrentSolarPhaseId: phases.CurrentSolarPhaseId,
 	        NextSolarPhaseId: phases.NextSolarPhaseId,
-	        NextSolarPhaseEpoch: phases.NextSolarPhaseEpoch,
-	        ShowSolarPhase: settings.ShowSolarPhase ? 1 : 0,
-	        ShowNextPhaseCountdown: settings.ShowNextPhaseCountdown ? 1 : 0
+	        NextSolarPhaseEpoch: phases.NextSolarPhaseEpoch
 	    };
 	}
 	
@@ -997,6 +1028,7 @@
 	
 	        console.log("[solar] dev payload city=" + payload.CityName + " lat=" + devLat.toFixed(4) + " lon=" + devLon.toFixed(4));
 	        cacheSolarPayload(payload);
+	        schedulePhaseRefreshAtEpoch(payload.NextSolarPhaseEpoch);
 	        sendStatus(STATUS.sendingPayload, 88);
 	        sendAppMessage(payload, "solar-payload");
 	        sendSettingsToWatch();
@@ -1014,6 +1046,7 @@
 	        payload.CityName = location.source === SOURCE.chicago ? "Chicago" : nearestKnownCityName(location.lat, location.lon);
 	        console.log("[solar] initial payload source=" + location.source + " city=" + payload.CityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
 	        cacheSolarPayload(payload);
+	        schedulePhaseRefreshAtEpoch(payload.NextSolarPhaseEpoch);
 	        sendStatus(STATUS.sendingPayload, 82);
 	        sendAppMessage(payload, "solar-payload-initial");
 	        sendSettingsToWatch();
@@ -1509,7 +1542,7 @@
 /* 6 */
 /***/ (function(module, exports) {
 
-	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10048,"ComputedAtEpoch":10008,"CurrentSolarPhaseId":10034,"CustomLatitudeE6":10032,"CustomLocationEnabled":10031,"CustomLongitudeE6":10033,"DebugBenchmark":10047,"DevDateTime":10040,"DevLatitude":10038,"DevLatitudeE6":10041,"DevLongitude":10039,"DevLongitudeE6":10042,"DevModeEnabled":10037,"DevReferenceEpoch":10043,"DevShowDebugOverlay":10046,"DevSweepCycleSeconds":10045,"DevSweepEnabled":10044,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"NextSolarPhaseEpoch":10036,"NextSolarPhaseId":10035,"ProgressPercent":10001,"RefreshRequest":10050,"ReloadFaceToken":10049,"ShowAltitude":10018,"ShowBattery":10053,"ShowDate":10052,"ShowLocation":10017,"ShowNextPhaseCountdown":10020,"ShowSolarPhase":10019,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeFormat":10051,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10026,"WeatherCode":10027,"WeatherDetailLevel":10023,"WeatherEnabled":10021,"WeatherPrecipX100":10029,"WeatherStatus":10024,"WeatherTempX10":10025,"WeatherUnitFahrenheit":10022,"WeatherUpdatedEpoch":10030,"WeatherWindX10":10028}
+	module.exports = {"AltitudeDegX100":10006,"AzimuthDegX100":10005,"BatterySaveMode":10012,"CityName":10044,"ComputedAtEpoch":10008,"CurrentSolarPhaseId":10030,"CustomLatitudeE6":10028,"CustomLocationEnabled":10027,"CustomLongitudeE6":10029,"DebugBenchmark":10043,"DevDateTime":10036,"DevLatitude":10034,"DevLatitudeE6":10037,"DevLongitude":10035,"DevLongitudeE6":10038,"DevModeEnabled":10033,"DevReferenceEpoch":10039,"DevShowDebugOverlay":10042,"DevSweepCycleSeconds":10041,"DevSweepEnabled":10040,"FooterSlot1":10048,"FooterSlot2":10049,"FooterSlot3":10050,"FooterSlot4":10051,"FooterSlot5":10052,"FooterSlot6":10053,"GradientAngleDegX100":10007,"GradientSpread":10011,"LatitudeE6":10003,"LongitudeE6":10004,"MotionMode":10010,"NextSolarPhaseEpoch":10032,"NextSolarPhaseId":10031,"ProgressPercent":10001,"RefreshRequest":10046,"ReloadFaceToken":10045,"SourceCode":10002,"StatusCode":10000,"TextOverrideMode":10009,"TimeFormat":10047,"TimeSizeBasalt":10013,"TimeSizeChalk":10014,"TimeSizeEmery":10015,"TimeSizeGabbro":10016,"WeatherCloudCover":10022,"WeatherCode":10023,"WeatherDetailLevel":10019,"WeatherEnabled":10017,"WeatherPrecipX100":10025,"WeatherStatus":10020,"WeatherTempX10":10021,"WeatherUnitFahrenheit":10018,"WeatherUpdatedEpoch":10026,"WeatherWindX10":10024}
 
 /***/ }),
 /* 7 */
@@ -1697,58 +1730,111 @@
 	    items: [
 	      {
 	        type: "heading",
-	        defaultValue: "Footer Visibility"
+	        defaultValue: "Footer Layout"
 	      },
 	      {
-	        type: "toggle",
-	        messageKey: "ShowLocation",
-	        label: "Show city name",
-	        defaultValue: true
+	        type: "text",
+	        defaultValue: "Select layout for up to 6 footer lines. \"None\" skips the line."
 	      },
 	      {
-	        type: "toggle",
-	        messageKey: "ShowAltitude",
-	        label: "Show altitude",
-	        defaultValue: true
+	        type: "select",
+	        messageKey: "FooterSlot1",
+	        label: "Slot 1 (Top)",
+	        defaultValue: "1",
+	        options: [
+	          { label: "None", value: "0" },
+	          { label: "Date", value: "1" },
+	          { label: "City Name", value: "2" },
+	          { label: "Weather", value: "3" },
+	          { label: "Altitude", value: "4" },
+	          { label: "Solar Phase", value: "5" },
+	          { label: "Next Phase Countdown", value: "6" },
+	          { label: "Battery", value: "7" }
+	        ]
 	      },
 	      {
-	        type: "toggle",
-	        messageKey: "ShowSolarPhase",
-	        label: "Show Solar Phase",
-	        defaultValue: true
+	        type: "select",
+	        messageKey: "FooterSlot2",
+	        label: "Slot 2",
+	        defaultValue: "2",
+	        options: [
+	          { label: "None", value: "0" },
+	          { label: "Date", value: "1" },
+	          { label: "City Name", value: "2" },
+	          { label: "Weather", value: "3" },
+	          { label: "Altitude", value: "4" },
+	          { label: "Solar Phase", value: "5" },
+	          { label: "Next Phase Countdown", value: "6" },
+	          { label: "Battery", value: "7" }
+	        ]
 	      },
 	      {
-	        type: "toggle",
-	        messageKey: "ShowNextPhaseCountdown",
-	        label: "Show Next Phase Countdown",
-	        defaultValue: true
+	        type: "select",
+	        messageKey: "FooterSlot3",
+	        label: "Slot 3",
+	        defaultValue: "0",
+	        options: [
+	          { label: "None", value: "0" },
+	          { label: "Date", value: "1" },
+	          { label: "City Name", value: "2" },
+	          { label: "Weather", value: "3" },
+	          { label: "Altitude", value: "4" },
+	          { label: "Solar Phase", value: "5" },
+	          { label: "Next Phase Countdown", value: "6" },
+	          { label: "Battery", value: "7" }
+	        ]
 	      },
 	      {
-	        type: "toggle",
-	        messageKey: "ShowDate",
-	        label: "Show Date",
-	        defaultValue: true
+	        type: "select",
+	        messageKey: "FooterSlot4",
+	        label: "Slot 4",
+	        defaultValue: "0",
+	        options: [
+	          { label: "None", value: "0" },
+	          { label: "Date", value: "1" },
+	          { label: "City Name", value: "2" },
+	          { label: "Weather", value: "3" },
+	          { label: "Altitude", value: "4" },
+	          { label: "Solar Phase", value: "5" },
+	          { label: "Next Phase Countdown", value: "6" },
+	          { label: "Battery", value: "7" }
+	        ]
 	      },
 	      {
-	        type: "toggle",
-	        messageKey: "ShowBattery",
-	        label: "Show Battery %",
-	        defaultValue: false
-	      }
-	    ]
-	  },
-	  {
-	    type: "section",
-	    items: [
+	        type: "select",
+	        messageKey: "FooterSlot5",
+	        label: "Slot 5",
+	        defaultValue: "0",
+	        options: [
+	          { label: "None", value: "0" },
+	          { label: "Date", value: "1" },
+	          { label: "City Name", value: "2" },
+	          { label: "Weather", value: "3" },
+	          { label: "Altitude", value: "4" },
+	          { label: "Solar Phase", value: "5" },
+	          { label: "Next Phase Countdown", value: "6" },
+	          { label: "Battery", value: "7" }
+	        ]
+	      },
+	      {
+	        type: "select",
+	        messageKey: "FooterSlot6",
+	        label: "Slot 6 (Bottom)",
+	        defaultValue: "0",
+	        options: [
+	          { label: "None", value: "0" },
+	          { label: "Date", value: "1" },
+	          { label: "City Name", value: "2" },
+	          { label: "Weather", value: "3" },
+	          { label: "Altitude", value: "4" },
+	          { label: "Solar Phase", value: "5" },
+	          { label: "Next Phase Countdown", value: "6" },
+	          { label: "Battery", value: "7" }
+	        ]
+	      },
 	      {
 	        type: "heading",
 	        defaultValue: "Weather (Open-Meteo)"
-	      },
-	      {
-	        type: "toggle",
-	        messageKey: "WeatherEnabled",
-	        label: "Enable weather",
-	        defaultValue: true
 	      },
 	      {
 	        type: "toggle",
@@ -1883,6 +1969,67 @@
 	  }
 	];
 
+
+/***/ }),
+/* 8 */
+/***/ (function(module, exports) {
+
+	module.exports = function(minified) {
+	  var clayConfig = this;
+	
+	  clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function() {
+	    var slotKeys = [
+	      "FooterSlot1",
+	      "FooterSlot2",
+	      "FooterSlot3",
+	      "FooterSlot4",
+	      "FooterSlot5",
+	      "FooterSlot6"
+	    ];
+	    
+	    var selects = [];
+	    slotKeys.forEach(function(key) {
+	      var item = clayConfig.getItemByMessageKey(key);
+	      if (item) {
+	        selects.push(item);
+	      }
+	    });
+	    
+	    function handleSelectChange() {
+	      var selectedValues = [];
+	      selects.forEach(function(item) {
+	        var val = String(item.get());
+	        if (val !== "0") {
+	          selectedValues.push(val);
+	        }
+	      });
+	
+	      selects.forEach(function(item) {
+	        var currentVal = String(item.get());
+	        if (item.$manipulator) {
+	          var options = item.$manipulator.select('option');
+	          if (options) {
+	            options.each(function(index, node) {
+	              var val = String(node.value);
+	              if (val !== "0" && val !== currentVal && selectedValues.indexOf(val) !== -1) {
+	                node.disabled = true;
+	              } else {
+	                node.disabled = false;
+	              }
+	            });
+	          }
+	        }
+	      });
+	    }
+	
+	    selects.forEach(function(item) {
+	      item.on('change', handleSelectChange);
+	    });
+	
+	    // Run once on load
+	    handleSelectChange();
+	  });
+	};
 
 /***/ })
 /******/ ]);

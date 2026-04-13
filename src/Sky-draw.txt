@@ -1,0 +1,251 @@
+  int hours = time_info->tm_hour % 12;
+  if (hours == 0) {
+    hours = 12;
+  }
+
+  char time_text[8];
+  snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
+
+  int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
+  GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
+
+  char location_text[48];
+  location_text[0] = '\0';
+  if (s_state.show_location != 0) {
+    prv_resolve_city_name(location_text, sizeof(location_text));
+  }
+
+  char altitude_text[32];
+  altitude_text[0] = '\0';
+  if (s_state.show_altitude != 0) {
+    char alt_value[24];
+    prv_format_altitude_x100(s_state.altitude_deg_x100, alt_value, sizeof(alt_value));
+    snprintf(altitude_text, sizeof(altitude_text), "alt %s deg", alt_value);
+  }
+
+  char weather_text[56];
+  prv_format_weather_text(weather_text, sizeof(weather_text));
+
+  char solar_phase_text[32];
+  solar_phase_text[0] = '\0';
+  if (s_state.show_solar_phase != 0) {
+    snprintf(solar_phase_text, sizeof(solar_phase_text), "%s", s_band_names[s_state.current_solar_phase_id]);
+  }
+
+  char next_phase_text[48];
+  next_phase_text[0] = '\0';
+  if (s_state.show_next_phase_countdown != 0 && s_state.next_solar_phase_epoch > 0) {
+    int32_t diff = s_state.next_solar_phase_epoch - time(NULL);
+    if (diff > 0) {
+      int32_t diff_mins = diff / 60;
+      int32_t h = diff_mins / 60;
+      int32_t m = diff_mins % 60;
+      if (h > 0) {
+        snprintf(next_phase_text, sizeof(next_phase_text), "%dh %dm to %s", (int)h, (int)m, s_band_names[s_state.next_solar_phase_id]);
+      } else {
+        snprintf(next_phase_text, sizeof(next_phase_text), "%dm to %s", (int)m, s_band_names[s_state.next_solar_phase_id]);
+      }
+    }
+  }
+
+  int16_t side_pad = prv_clamp_i16(bounds.size.w / 18, 4, 16);
+  int16_t top_bottom_pad = prv_clamp_i16(bounds.size.h / 12, 8, 26);
+  int16_t content_w = bounds.size.w - (2 * side_pad);
+  if (content_w < 20) {
+    content_w = bounds.size.w;
+    side_pad = 0;
+  }
+
+  GFont info_font = bounds.size.h < 200 ? s_info_font_small : s_info_font_large;
+  int16_t info_line_h = prv_line_height_for_font(info_font);
+  int16_t line_gap_main = prv_clamp_i16(bounds.size.h / 36, 2, 8);
+  int16_t line_gap_info = prv_clamp_i16(bounds.size.h / 48, 1, 6);
+
+  GSize time_size = prv_text_size(time_text, time_font, content_w, bounds.size.h);
+  bool show_location_line = (location_text[0] != '\0');
+  bool show_altitude_line = (altitude_text[0] != '\0');
+  bool show_weather_line = (weather_text[0] != '\0');
+  bool show_solar_phase_line = (solar_phase_text[0] != '\0');
+  bool show_next_phase_countdown_line = (next_phase_text[0] != '\0');
+
+  int16_t info_line_count = 0;
+  if (show_location_line) {
+    info_line_count += 1;
+  }
+  if (show_altitude_line) {
+    info_line_count += 1;
+  }
+  if (show_weather_line) {
+    info_line_count += 1;
+  }
+  if (show_solar_phase_line) {
+    info_line_count += 1;
+  }
+  if (show_next_phase_countdown_line) {
+    info_line_count += 1;
+  }
+
+  int16_t block_h = time_size.h;
+  if (info_line_count > 0) {
+    block_h += line_gap_main;
+    block_h += (int16_t)(info_line_h * info_line_count);
+    block_h += (int16_t)(line_gap_info * (info_line_count - 1));
+  }
+
+  int16_t available_h = bounds.size.h - (2 * top_bottom_pad);
+  if (block_h > available_h) {
+    line_gap_main = 1;
+    line_gap_info = 1;
+    block_h = time_size.h;
+    if (info_line_count > 0) {
+      block_h += line_gap_main;
+      block_h += (int16_t)(info_line_h * info_line_count);
+      block_h += (int16_t)(line_gap_info * (info_line_count - 1));
+    }
+  }
+
+  int16_t start_y = top_bottom_pad;
+  if (available_h > block_h) {
+    start_y += (available_h - block_h) / 2;
+  }
+
+  int16_t y_cursor = start_y;
+  int16_t time_center_y = y_cursor + (time_size.h / 2);
+  TextStyle time_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, time_center_y);
+  prv_draw_styled_text(ctx, time_text, time_font, time_style,
+                       side_pad, y_cursor, content_w, time_size.h + 2, GTextAlignmentCenter);
+  y_cursor += time_size.h;
+
+  if (info_line_count > 0) {
+    y_cursor += line_gap_main;
+  }
+
+  if (show_location_line) {
+    int16_t location_center_y = y_cursor + (info_line_h / 2);
+    TextStyle location_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, location_center_y);
+    prv_draw_styled_text(ctx, location_text, info_font, location_style,
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    y_cursor += info_line_h;
+  }
+
+  if (show_location_line && (show_altitude_line || show_weather_line)) {
+    y_cursor += line_gap_info;
+  }
+
+  if (show_altitude_line) {
+    int16_t altitude_center_y = y_cursor + (info_line_h / 2);
+    TextStyle altitude_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, altitude_center_y);
+    prv_draw_styled_text(ctx, altitude_text, info_font, altitude_style,
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    y_cursor += info_line_h;
+  }
+
+  if ((show_location_line || show_altitude_line) && show_weather_line) {
+    y_cursor += line_gap_info;
+  }
+
+  if (show_weather_line) {
+    int16_t weather_center_y = y_cursor + (info_line_h / 2);
+    TextStyle weather_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, weather_center_y);
+    prv_draw_styled_text(ctx, weather_text, info_font, weather_style,
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    y_cursor += info_line_h;
+  }
+
+  if (show_weather_line && (show_solar_phase_line || show_next_phase_countdown_line)) {
+    y_cursor += line_gap_info;
+  } else if (!show_weather_line && (show_location_line || show_altitude_line) && (show_solar_phase_line || show_next_phase_countdown_line)) {
+    y_cursor += line_gap_info;
+  }
+
+  if (show_solar_phase_line) {
+    int16_t solar_center_y = y_cursor + (info_line_h / 2);
+    TextStyle solar_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, solar_center_y);
+    prv_draw_styled_text(ctx, solar_phase_text, info_font, solar_style,
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+    y_cursor += info_line_h;
+  }
+
+  if (show_solar_phase_line && show_next_phase_countdown_line) {
+    y_cursor += line_gap_info;
+  }
+
+  if (show_next_phase_countdown_line) {
+    int16_t next_center_y = y_cursor + (info_line_h / 2);
+    TextStyle next_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, next_center_y);
+    prv_draw_styled_text(ctx, next_phase_text, info_font, next_style,
+                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+  }
+
+  if (s_state.dev_mode_enabled && s_state.dev_show_debug_overlay) {
+    char az_text[16];
+    prv_format_azimuth_x100(s_state.azimuth_deg_x100, az_text, sizeof(az_text));
+
+    char dev_text[48];
+    snprintf(dev_text, sizeof(dev_text), "%s az %s", s_state.dev_sweep_enabled ? "SWEEP" : "DEV", az_text);
+
+    Rgb dev_sample = prv_interpolate_rgb(palette.top, palette.bottom, 0.2f);
+    TextStyle dev_style = prv_pick_text_style(dev_sample);
+    prv_draw_styled_text(ctx, dev_text, s_info_font_small, dev_style,
+                         4, 4, bounds.size.w - 8, 18, GTextAlignmentLeft);
+  }
+
+  prv_draw_refresh_badge(ctx, bounds, now_ms);
+}
+
+static void prv_draw_loading_card(GContext *ctx, GRect bounds) {
+  GColor black = GColorBlack;
+  GColor white = GColorWhite;
+  GColor panel = prv_make_color_rgb((Rgb){18, 18, 28});
+  GColor track = prv_make_color_rgb((Rgb){42, 42, 58});
+  GColor fill = prv_make_color_rgb((Rgb){104, 177, 255});
+
+  graphics_context_set_fill_color(ctx, black);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+
+  int16_t panel_w = bounds.size.w - 20;
+  if (panel_w > 200) panel_w = 200;
+  int16_t panel_h = bounds.size.h - 28;
+  if (panel_h > 120) panel_h = 120;
+  int16_t panel_x = (bounds.size.w - panel_w) / 2;
+  int16_t panel_y = (bounds.size.h - panel_h) / 2;
+
+  graphics_context_set_fill_color(ctx, panel);
+  graphics_fill_rect(ctx, GRect(panel_x, panel_y, panel_w, panel_h), 0, GCornerNone);
+
+  graphics_context_set_text_color(ctx, white);
+  graphics_draw_text(ctx, "Solar Gradient", s_info_font_large,
+                     GRect(panel_x, panel_y + 18, panel_w, 24),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+
+  graphics_draw_text(ctx, prv_loading_status_line(), s_info_font_small,
+                     GRect(panel_x + 4, panel_y + 54, panel_w - 8, 18),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+
+  int16_t bar_w = panel_w - 28;
+  int16_t bar_h = 8;
+  int16_t bar_x = panel_x + 14;
+  int16_t bar_y = panel_y + 76;
+
+  graphics_context_set_fill_color(ctx, track);
+  graphics_fill_rect(ctx, GRect(bar_x, bar_y, bar_w, bar_h), 0, GCornerNone);
+
+  int16_t fill_w = (int16_t)((bar_w * prv_clamp_i32(s_state.loading_progress, 0, 100)) / 100);
+  if (fill_w > 0) {
+    graphics_context_set_fill_color(ctx, fill);
+    graphics_fill_rect(ctx, GRect(bar_x, bar_y, fill_w, bar_h), 0, GCornerNone);
+  }
+
+  char percent_text[8];
+  snprintf(percent_text, sizeof(percent_text), "%ld%%", (long)prv_clamp_i32(s_state.loading_progress, 0, 100));
+  graphics_context_set_text_color(ctx, white);
+  graphics_draw_text(ctx, percent_text, s_info_font_small,
+                     GRect(panel_x, panel_y + 90, panel_w, 18),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+}
+
+static void prv_canvas_update_proc(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
+  s_active_profile = prv_render_profile_for_bounds(bounds);
+
+  if (!s_state.bt_connected && !s_state.has_payload) {
