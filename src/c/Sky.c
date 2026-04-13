@@ -99,6 +99,7 @@ typedef struct {
   int32_t motion_mode;
   int32_t gradient_spread;
   int32_t battery_save_mode;
+  int32_t time_format;
   int32_t time_size_basalt;
   int32_t time_size_chalk;
   int32_t time_size_emery;
@@ -200,6 +201,7 @@ static AppState s_state = {
   .text_override_mode = TEXT_MODE_AUTO,
   .motion_mode = MOTION_MODE_HYBRID,
   .battery_save_mode = 0,
+  .time_format = 0,
   .time_size_basalt = TIME_SIZE_BALANCED,
   .time_size_chalk = TIME_SIZE_BALANCED,
   .time_size_emery = TIME_SIZE_BALANCED,
@@ -1405,13 +1407,24 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
 
   time_t now = time(NULL);
   struct tm *time_info = localtime(&now);
-  int hours = time_info->tm_hour % 12;
-  if (hours == 0) {
-    hours = 12;
+
+  bool is_24h = clock_is_24h_style();
+  if (s_state.time_format == 1) {
+    is_24h = false;
+  } else if (s_state.time_format == 2) {
+    is_24h = true;
   }
 
   char time_text[8];
-  snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
+  if (is_24h) {
+    snprintf(time_text, sizeof(time_text), "%02d:%02d", time_info->tm_hour, time_info->tm_min);
+  } else {
+    int hours = time_info->tm_hour % 12;
+    if (hours == 0) {
+      hours = 12;
+    }
+    snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
+  }
 
   int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
   GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
@@ -1689,6 +1702,12 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
     s_state.battery_save_mode = prv_tuple_to_i32(battery_mode) != 0 ? 1 : 0;
     loading_changed = true;
     motion_changed = true;
+  }
+
+  Tuple *time_format = dict_find(iter, MESSAGE_KEY_TimeFormat);
+  if (time_format) {
+    s_state.time_format = prv_clamp_i32(prv_tuple_to_i32(time_format), 0, 2);
+    loading_changed = true;
   }
 
   Tuple *time_size_basalt = dict_find(iter, MESSAGE_KEY_TimeSizeBasalt);
