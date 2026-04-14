@@ -1,0 +1,2143 @@
+1: #include <pebble.h>
+2: 
+3: #define SOURCE_PHONE 0
+4: #define SOURCE_MANUAL 1
+5: #define SOURCE_CHICAGO 2
+6: #define SOURCE_CACHED 3
+7: 
+8: #define STATUS_STARTING 0
+9: #define STATUS_GRABBING_LOCATION 1
+10: #define STATUS_CALCULATING_SUN 2
+11: #define STATUS_RESOLVING_CITY 3
+12: #define STATUS_SENDING_PAYLOAD 4
+13: #define STATUS_READY 6
+14: 
+15: #define TEXT_MODE_AUTO 0
+16: #define TEXT_MODE_WHITE 1
+17: #define TEXT_MODE_BLACK 2
+18: #define TEXT_MODE_BLACK_GLOW 3
+19: 
+20: #define MOTION_MODE_HYBRID 0
+21: #define MOTION_MODE_CALM 1
+22: #define MOTION_MODE_DYNAMIC 2
+23: 
+24: #define TIME_SIZE_COMPACT 0
+25: #define TIME_SIZE_BALANCED 1
+26: #define TIME_SIZE_LARGE 2
+27: 
+28: #define WEATHER_STATUS_STALE 1
+29: #define WEATHER_STATUS_FAILED 2
+30: 
+31: #define LOADING_TIMEOUT_MS 15000
+32: #define LOADING_STALE_HINT_MS 3500
+33: #define LOADING_STILL_WORKING_MS 6000
+34: #define LOADING_TIMER_INTERVAL_MS 125
+35: #define LOADING_TRANSITION_HOLD_MS 180
+36: 
+37: #define ANGLE_TRANSITION_MS 3500
+38: #define AMBIENT_DRIFT_PERIOD_MS 18000
+39: #define AMBIENT_DRIFT_AMPLITUDE_DEG 2.8f
+40: #define REFRESH_DRIFT_BOOST_MS 5000
+41: #define REFRESH_BADGE_MS 1800
+42: #define EVENT_MOMENT_MS 28000
+43: 
+44: #define GRADIENT_STEP 2
+45: #define DITHER_STRENGTH 0.03f
+46: #define TEXT_BRIGHTNESS_THRESHOLD 145
+47: #define MIN_LUMA_DELTA_BASE 14
+48: #define MIN_LUMA_DELTA_SHOULDER 30
+49: #define MIN_CHROMA_DELTA_BASE 44
+50: #define MIN_CHROMA_DELTA_SHOULDER 94
+51: 
+52: typedef struct {
+53:   int16_t r;
+54:   int16_t g;
+55:   int16_t b;
+56: } Rgb;
+57: 
+58: typedef struct {
+59:   int8_t altitude;
+60:   Rgb top;
+61:   Rgb bottom;
+62: } AtmosphereBand;
+63: 
+64: typedef struct {
+65:   Rgb top;
+66:   Rgb bottom;
+67: } Palette;
+68: 
+69: typedef struct {
+70:   GColor color;
+71:   bool glow;
+72:   GColor glow_color;
+73: } TextStyle;
+74: 
+75: typedef struct {
+76:   int16_t width;
+77:   int16_t height;
+78:   int16_t gradient_step_large;
+79:   int32_t large_step_area_threshold;
+80:   uint16_t animation_interval_ms;
+81:   float daylight_contrast_mult;
+82:   float daylight_shift_mult;
+83:   float gradient_widen_mult;
+84:   float dither_mult;
+85:   float bloom_gain_mult;
+86:   float bloom_radius_mult;
+87:   float drift_mult;
+88: } RenderProfile;
+89: 
+90: typedef struct {
+91:   int32_t source_code;
+92:   int32_t latitude_e6;
+93:   int32_t longitude_e6;
+94:   int32_t azimuth_deg_x100;
+95:   int32_t altitude_deg_x100;
+96:   int32_t gradient_angle_deg_x100;
+97:   int32_t computed_at_epoch;
+98:   int32_t text_override_mode;
+99:   int32_t motion_mode;
+100:   int32_t gradient_spread;
+101:   int32_t battery_save_mode;
+102:   int32_t time_format;
+103:   int32_t time_size_basalt;
+104:   int32_t time_size_chalk;
+105:   int32_t time_size_emery;
+106:   int32_t time_size_gabbro;
+107:   int32_t footer_slot_1;
+108:   int32_t footer_slot_2;
+109:   int32_t footer_slot_3;
+110:   int32_t footer_slot_4;
+111:   int32_t footer_slot_5;
+112:   int32_t footer_slot_6;
+113:   int32_t weather_enabled;
+114:   int32_t weather_unit_fahrenheit;
+115:   int32_t weather_detail_level;
+116:   int32_t weather_status;
+117:   int32_t weather_temp_x10;
+118:   int32_t weather_cloud_cover;
+119:   int32_t weather_code;
+120:   int32_t weather_wind_x10;
+121:   int32_t weather_precip_x100;
+122:   int32_t weather_updated_epoch;
+123:   int32_t custom_location_enabled;
+124:   int32_t custom_latitude_e6;
+125:   int32_t custom_longitude_e6;
+126:   int32_t debug_benchmark;
+127:   int32_t status_code;
+128:   int32_t loading_progress;
+129:   int32_t loading_progress_target;
+130:   int32_t target_gradient_angle_deg_x100;
+131:   int32_t previous_gradient_angle_deg_x100;
+132:   uint32_t last_reload_face_token;
+133:   uint32_t refresh_counter;
+134:   uint32_t loading_started_ms;
+135:   uint32_t loading_status_started_ms;
+136:   uint32_t launch_transition_deadline_ms;
+137:   uint32_t angle_transition_started_ms;
+138:   uint32_t last_payload_received_ms;
+139:   uint32_t refresh_badge_until_ms;
+140:   uint32_t event_moment_until_ms;
+141:   bool launch_done;
+142:   bool has_payload;
+143:   bool had_payload_once;
+144:   bool angle_transition_active;
+145:   bool bt_connected;
+146:   bool dev_mode_enabled;
+147:   bool dev_sweep_enabled;
+148:   bool dev_show_debug_overlay;
+149:   uint8_t loading_hint_mode;
+150:   char city_name[48];
+151:   int32_t show_solar_phase;
+152:   int32_t show_next_phase_countdown;
+153:   int32_t current_solar_phase_id;
+154:   int32_t next_solar_phase_id;
+155:   int32_t next_solar_phase_epoch;
+156: } AppState;
+157: 
+158: static const AtmosphereBand s_atmosphere[] = {
+159:   { -18, {8, 8, 26}, {40, 54, 110} },
+160:   { -6, {26, 23, 66}, {58, 41, 108} },
+161:   { -2, {96, 55, 118}, {196, 70, 130} },
+162:   { 2, {238, 116, 60}, {255, 113, 114} },
+163:   { 10, {255, 189, 98}, {255, 151, 80} },
+164:   { 20, {118, 190, 255}, {187, 226, 255} },
+165: };
+166: 
+167: static const RenderProfile s_render_profiles[] = {
+168:   // baseline fallback profile (used when no exact resolution match exists)
+169:   { 0, 0, 4, 45000, 1000, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
+170:   // basalt 144x168
+171:   { 144, 168, 3, 70000, 1000, 1.04f, 1.05f, 1.05f, 1.05f, 1.00f, 0.95f, 1.00f },
+172:   // chalk 180x180
+173:   { 180, 180, 3, 70000, 900, 1.08f, 1.08f, 1.10f, 1.10f, 1.08f, 1.05f, 1.08f },
+174:   // emery 200x228
+175:   { 200, 228, 3, 45000, 1100, 1.15f, 1.12f, 1.15f, 1.00f, 1.12f, 1.10f, 0.95f },
+176:   // gabbro 260x260
+177:   { 260, 260, 3, 50000, 1200, 1.20f, 1.15f, 1.20f, 1.05f, 1.18f, 1.18f, 1.02f },
+178: };
+179: 
+180: static Window *s_window;
+181: static Layer *s_canvas_layer;
+182: static AppTimer *s_loading_timer;
+183: static AppTimer *s_animation_timer;
+184: static const RenderProfile *s_active_profile;
+185: 
+186: static const char* s_band_names[] = {"Deep Night", "Astro Twilight", "Nautical Blue Hour", "Sunrise", "Golden Hour", "Morning Light", "Midday Sun", "Afternoon Sky", "Golden Hour", "Sunset", "Blue Hour", "Nautical Twilight", "Astro Twilight", "Deep Night"};
+187: static GFont s_time_font;
+188: static GFont s_info_font_large;
+189: static GFont s_info_font_small;
+190: 
+191: static AppState s_state = {
+192:   .source_code = SOURCE_CHICAGO,
+193:   .latitude_e6 = 41878100,
+194:   .longitude_e6 = -87629800,
+195:   .azimuth_deg_x100 = 18000,
+196:   .altitude_deg_x100 = -1800,
+197:   .gradient_angle_deg_x100 = 0,
+198:   .target_gradient_angle_deg_x100 = 0,
+199:   .previous_gradient_angle_deg_x100 = 0,
+200:   .computed_at_epoch = 0,
+201:   .text_override_mode = TEXT_MODE_AUTO,
+202:   .motion_mode = MOTION_MODE_HYBRID,
+203:   .battery_save_mode = 0,
+204:   .time_format = 0,
+205:   .time_size_basalt = TIME_SIZE_BALANCED,
+206:   .time_size_chalk = TIME_SIZE_BALANCED,
+207:   .time_size_emery = TIME_SIZE_BALANCED,
+208:   .time_size_gabbro = TIME_SIZE_BALANCED,
+209:   .footer_slot_1 = 1,
+210:   .footer_slot_2 = 2,
+211:   .footer_slot_3 = 0,
+212:   .footer_slot_4 = 0,
+213:   .footer_slot_5 = 0,
+214:   .footer_slot_6 = 0,
+215:   .weather_enabled = 1,
+216:   .weather_unit_fahrenheit = 1,
+217:   .weather_detail_level = 1,
+218:   .weather_status = WEATHER_STATUS_STALE,
+219:   .weather_temp_x10 = 0,
+220:   .weather_cloud_cover = 0,
+221:   .weather_code = 0,
+222:   .weather_wind_x10 = 0,
+223:   .weather_precip_x100 = 0,
+224:   .weather_updated_epoch = 0,
+225:   .status_code = STATUS_STARTING,
+226:   .loading_progress = 0,
+227:   .loading_progress_target = 0,
+228:   .event_moment_until_ms = 0,
+229:   .launch_done = false,
+230:   .has_payload = false,
+231:   .had_payload_once = false,
+232:   .loading_hint_mode = 0,
+233:   .city_name = "Chicago",
+234: };
+235: 
+236: static int16_t prv_clamp_i16(int32_t value, int16_t min, int16_t max) {
+237:   if (value < min) {
+238:     return min;
+239:   }
+240:   if (value > max) {
+241:     return max;
+242:   }
+243:   return (int16_t)value;
+244: }
+245: 
+246: static int32_t prv_clamp_i32(int32_t value, int32_t min, int32_t max) {
+247:   if (value < min) {
+248:     return min;
+249:   }
+250:   if (value > max) {
+251:     return max;
+252:   }
+253:   return value;
+254: }
+255: 
+256: static int32_t prv_round_i32(float value) {
+257:   return (int32_t)(value >= 0.0f ? value + 0.5f : value - 0.5f);
+258: }
+259: 
+260: static float prv_absf(float value) {
+261:   return value < 0.0f ? -value : value;
+262: }
+263: 
+264: static char prv_ascii_lower(char c) {
+265:   if (c >= 'A' && c <= 'Z') {
+266:     return (char)(c + ('a' - 'A'));
+267:   }
+268:   return c;
+269: }
+270: 
+271: static bool prv_ascii_ieq(const char *a, const char *b) {
+272:   if (!a || !b) {
+273:     return false;
+274:   }
+275: 
+276:   while (*a && *b) {
+277:     if (prv_ascii_lower(*a) != prv_ascii_lower(*b)) {
+278:       return false;
+279:     }
+280:     a += 1;
+281:     b += 1;
+282:   }
+283: 
+284:   return (*a == '\0' && *b == '\0');
+285: }
+286: 
+287: static int32_t prv_cstring_to_i32(const char *value) {
+288:   if (!value) {
+289:     return 0;
+290:   }
+291: 
+292:   while (*value == ' ' || *value == '\t' || *value == '\n' || *value == '\r') {
+293:     value += 1;
+294:   }
+295: 
+296:   if (*value == '\0') {
+297:     return 0;
+298:   }
+299: 
+300:   if (prv_ascii_ieq(value, "true") || prv_ascii_ieq(value, "on") || prv_ascii_ieq(value, "yes")) {
+301:     return 1;
+302:   }
+303:   if (prv_ascii_ieq(value, "false") || prv_ascii_ieq(value, "off") || prv_ascii_ieq(value, "no")) {
+304:     return 0;
+305:   }
+306: 
+307:   bool negative = false;
+308:   if (*value == '-' || *value == '+') {
+309:     negative = (*value == '-');
+310:     value += 1;
+311:   }
+312: 
+313:   int32_t parsed = 0;
+314:   bool saw_digit = false;
+315:   while (*value >= '0' && *value <= '9') {
+316:     saw_digit = true;
+317:     parsed = (parsed * 10) + (*value - '0');
+318:     value += 1;
+319:   }
+320: 
+321:   if (!saw_digit) {
+322:     return 0;
+323:   }
+324: 
+325:   return negative ? -parsed : parsed;
+326: }
+327: 
+328: static int32_t prv_tuple_to_i32(const Tuple *tuple) {
+329:   if (!tuple) {
+330:     return 0;
+331:   }
+332: 
+333:   if (tuple->type == TUPLE_CSTRING) {
+334:     return prv_cstring_to_i32(tuple->value->cstring);
+335:   }
+336: 
+337:   if (tuple->type == TUPLE_BYTE_ARRAY || tuple->length == 0) {
+338:     return 0;
+339:   }
+340: 
+341:   if (tuple->length == 1) {
+342:     return (tuple->type == TUPLE_INT) ? tuple->value->int8 : tuple->value->uint8;
+343:   }
+344:   if (tuple->length == 2) {
+345:     return (tuple->type == TUPLE_INT) ? tuple->value->int16 : tuple->value->uint16;
+346:   }
+347:   return (tuple->type == TUPLE_INT) ? tuple->value->int32 : (int32_t)tuple->value->uint32;
+348: }
+349: 
+350: static float prv_clampf(float value, float min, float max) {
+351:   if (value < min) {
+352:     return min;
+353:   }
+354:   if (value > max) {
+355:     return max;
+356:   }
+357:   return value;
+358: }
+359: 
+360: static const RenderProfile *prv_render_profile_for_bounds(GRect bounds) {
+361:   for (size_t i = 1; i < sizeof(s_render_profiles) / sizeof(s_render_profiles[0]); i++) {
+362:     if (s_render_profiles[i].width == bounds.size.w && s_render_profiles[i].height == bounds.size.h) {
+363:       return &s_render_profiles[i];
+364:     }
+365:   }
+366:   return &s_render_profiles[0];
+367: }
+368: 
+369: static int32_t prv_time_size_mode_for_profile(const RenderProfile *profile) {
+370:   if (profile->width == 144 && profile->height == 168) {
+371:     return prv_clamp_i32(s_state.time_size_basalt, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+372:   }
+373:   if (profile->width == 180 && profile->height == 180) {
+374:     return prv_clamp_i32(s_state.time_size_chalk, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+375:   }
+376:   if (profile->width == 200 && profile->height == 228) {
+377:     return prv_clamp_i32(s_state.time_size_emery, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+378:   }
+379:   if (profile->width == 260 && profile->height == 260) {
+380:     return prv_clamp_i32(s_state.time_size_gabbro, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+381:   }
+382:   return TIME_SIZE_BALANCED;
+383: }
+384: 
+385: static GFont prv_time_font_for_mode(const RenderProfile *profile, int32_t size_mode) {
+386:   GFont font = s_time_font;
+387:   int32_t mode = prv_clamp_i32(size_mode, TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+388: 
+389:   if (mode == TIME_SIZE_COMPACT) {
+390:     font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
+391:   } else if (mode == TIME_SIZE_LARGE) {
+392:     if (profile->width >= 200 && profile->height >= 200) {
+393:       font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+394:     } else {
+395:       font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+396:     }
+397:   } else {
+398:     if (profile->width >= 200 && profile->height >= 200) {
+399:       font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+400:     } else {
+401:       font = fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT);
+402:     }
+403:   }
+404: 
+405:   return font ? font : s_time_font;
+406: }
+407: 
+408: static int32_t prv_effective_motion_mode(void) {
+409:   int32_t mode = prv_clamp_i32(s_state.motion_mode, MOTION_MODE_HYBRID, MOTION_MODE_DYNAMIC);
+410:   if (s_state.battery_save_mode != 0 && mode != MOTION_MODE_CALM) {
+411:     return MOTION_MODE_CALM;
+412:   }
+413:   return mode;
+414: }
+415: 
+416: static uint32_t prv_animation_interval_for_profile(const RenderProfile *profile) {
+417:   int32_t mode = prv_effective_motion_mode();
+418:   if (mode == MOTION_MODE_CALM) {
+419:     return (uint32_t)profile->animation_interval_ms * 2;
+420:   }
+421:   if (mode == MOTION_MODE_DYNAMIC) {
+422:     uint32_t fast = (uint32_t)((profile->animation_interval_ms * 3) / 5);
+423:     return fast < 550 ? 550 : fast;
+424:   }
+425:   return profile->animation_interval_ms;
+426: }
+427: 
+428: static int32_t prv_wrap_degrees_x100(int32_t angle_x100) {
+429:   int32_t wrapped = angle_x100 % 36000;
+430:   if (wrapped < 0) {
+431:     wrapped += 36000;
+432:   }
+433:   return wrapped;
+434: }
+435: 
+436: static int32_t prv_shortest_delta_degrees_x100(int32_t from_x100, int32_t to_x100) {
+437:   int32_t from = prv_wrap_degrees_x100(from_x100);
+438:   int32_t to = prv_wrap_degrees_x100(to_x100);
+439:   int32_t delta = to - from;
+440:   if (delta > 18000) {
+441:     delta -= 36000;
+442:   } else if (delta < -18000) {
+443:     delta += 36000;
+444:   }
+445:   return delta;
+446: }
+447: 
+448: static float prv_wave_sine_ms(uint32_t now_ms, uint32_t period_ms, uint32_t phase_ms) {
+449:   if (period_ms == 0) {
+450:     return 0.0f;
+451:   }
+452:   uint32_t shifted = (now_ms + phase_ms) % period_ms;
+453:   int32_t trig_angle = (int32_t)(((int64_t)shifted * TRIG_MAX_ANGLE) / period_ms);
+454:   return sin_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+455: }
+456: 
+457: static uint32_t prv_now_ms(void) {
+458:   time_t sec;
+459:   uint16_t ms;
+460:   time_ms(&sec, &ms);
+461:   return (uint32_t)(sec * 1000 + ms);
+462: }
+463: 
+464: static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfile *profile);
+465: static float prv_event_moment_strength(uint32_t now_ms);
+466: 
+467: static int16_t prv_lerp_i16(int16_t start, int16_t end, float factor) {
+468:   return (int16_t)prv_round_i32((float)start + ((float)(end - start) * factor));
+469: }
+470: 
+471: static uint16_t prv_daily_variation_seed(void) {
+472:   int32_t epoch = s_state.computed_at_epoch;
+473:   if (epoch <= 0) {
+474:     epoch = (int32_t)(time(NULL));
+475:   }
+476: 
+477:   int32_t day_index = epoch / 86400;
+478:   int32_t loc_mix = (s_state.latitude_e6 >> 12) ^ (s_state.longitude_e6 >> 11);
+479:   uint32_t seed = (uint32_t)day_index;
+480:   seed ^= (uint32_t)(loc_mix * 2654435761u);
+481:   seed ^= (seed >> 16);
+482:   return (uint16_t)(seed & 0xFFFF);
+483: }
+484: 
+485: static float prv_noise_2d(int32_t x, int32_t y, uint16_t seed) {
+486:   uint32_t n = (uint32_t)(x * 374761393u);
+487:   n += (uint32_t)(y * 668265263u);
+488:   n += ((uint32_t)seed * 2246822519u);
+489:   n = (n ^ (n >> 13)) * 1274126177u;
+490:   n ^= (n >> 16);
+491:   return ((float)(n & 1023) / 511.5f) - 1.0f;
+492: }
+493: 
+494: static int16_t prv_channel_delta_abs(Rgb a, Rgb b) {
+495:   return (int16_t)(prv_absf((float)a.r - (float)b.r) +
+496:                    prv_absf((float)a.g - (float)b.g) +
+497:                    prv_absf((float)a.b - (float)b.b));
+498: }
+499: 
+500: static int16_t prv_luma_itu601(Rgb color) {
+501:   return (int16_t)((color.r * 299 + color.g * 587 + color.b * 114) / 1000);
+502: }
+503: 
+504: static void prv_expand_channel_pair_toward_delta(int16_t *a, int16_t *b, int16_t target_delta) {
+505:   int16_t current_delta = (int16_t)prv_absf((float)(*b - *a));
+506:   if (current_delta >= target_delta) {
+507:     return;
+508:   }
+509: 
+510:   int16_t sign = (*b >= *a) ? 1 : -1;
+511:   float midpoint = ((float)*a + (float)*b) * 0.5f;
+512:   float half = ((float)target_delta) * 0.5f;
+513: 
+514:   int16_t next_a = prv_clamp_i16(prv_round_i32(midpoint - (half * sign)), 0, 255);
+515:   int16_t next_b = prv_clamp_i16(prv_round_i32(midpoint + (half * sign)), 0, 255);
+516: 
+517:   *a = next_a;
+518:   *b = next_b;
+519: }
+520: 
+521: static Rgb prv_interpolate_rgb(Rgb a, Rgb b, float t) {
+522:   Rgb out;
+523:   out.r = prv_lerp_i16(a.r, b.r, t);
+524:   out.g = prv_lerp_i16(a.g, b.g, t);
+525:   out.b = prv_lerp_i16(a.b, b.b, t);
+526:   return out;
+527: }
+528: 
+529: static void prv_widen_pair(int16_t a, int16_t b, float scale, int16_t *out_a, int16_t *out_b) {
+530:   float mid = ((float)a + (float)b) * 0.5f;
+531:   *out_a = prv_clamp_i16(prv_round_i32(mid + (((float)a - mid) * scale)), 0, 255);
+532:   *out_b = prv_clamp_i16(prv_round_i32(mid + (((float)b - mid) * scale)), 0, 255);
+533: }
+534: 
+535: static Palette prv_widen_palette_contrast(Palette base, float scale) {
+536:   Palette out = base;
+537:   prv_widen_pair(base.top.r, base.bottom.r, scale, &out.top.r, &out.bottom.r);
+538:   prv_widen_pair(base.top.g, base.bottom.g, scale, &out.top.g, &out.bottom.g);
+539:   prv_widen_pair(base.top.b, base.bottom.b, scale, &out.top.b, &out.bottom.b);
+540:   return out;
+541: }
+542: 
+543: static Palette prv_enhance_daylight_palette(Palette base, float altitude_deg, const RenderProfile *profile) {
+544: #ifdef PBL_COLOR
+545:   if (altitude_deg < 35.0f) {
+546:     return base;
+547:   }
+548: 
+549:   float strength = prv_clampf((altitude_deg - 35.0f) / 20.0f, 0.0f, 1.0f);
+550:   Palette out = prv_widen_palette_contrast(base, 1.0f + (0.35f * strength * profile->daylight_contrast_mult));
+551:   float shift_scale = profile->daylight_shift_mult;
+552: 
+553:   out.top.r = prv_clamp_i16(out.top.r - prv_round_i32(26.0f * strength * shift_scale), 0, 255);
+554:   out.top.g = prv_clamp_i16(out.top.g - prv_round_i32(18.0f * strength * shift_scale), 0, 255);
+555:   out.top.b = prv_clamp_i16(out.top.b + prv_round_i32(10.0f * strength * shift_scale), 0, 255);
+556: 
+557:   out.bottom.r = prv_clamp_i16(out.bottom.r + prv_round_i32(18.0f * strength * shift_scale), 0, 255);
+558:   out.bottom.g = prv_clamp_i16(out.bottom.g + prv_round_i32(14.0f * strength * shift_scale), 0, 255);
+559:   out.bottom.b = prv_clamp_i16(out.bottom.b + prv_round_i32(6.0f * strength * shift_scale), 0, 255);
+560:   return out;
+561: #else
+562:   (void)profile;
+563:   (void)altitude_deg;
+564:   return base;
+565: #endif
+566: }
+567: 
+568: static Palette prv_apply_phase_theme(Palette base, float altitude_deg) {
+569: #ifdef PBL_COLOR
+570:   uint16_t seed = prv_daily_variation_seed();
+571:   float variation = (((float)(seed & 15) / 15.0f) - 0.5f) * 0.8f;
+572: 
+573:   float deep_night = prv_clampf((-altitude_deg - 10.0f) / 14.0f, 0.0f, 1.0f);
+574:   float blue_hour = 1.0f - prv_clampf(prv_absf(altitude_deg + 4.0f) / 4.5f, 0.0f, 1.0f);
+575:   float sunrise_band = 1.0f - prv_clampf(prv_absf(altitude_deg - 0.8f) / 5.5f, 0.0f, 1.0f);
+576:   float golden_band = 1.0f - prv_clampf(prv_absf(altitude_deg - 8.0f) / 6.0f, 0.0f, 1.0f);
+577:   float midday = prv_clampf((altitude_deg - 18.0f) / 22.0f, 0.0f, 1.0f);
+578: 
+579:   base.top.r = prv_clamp_i16(base.top.r + prv_round_i32((-7.0f * deep_night) + (7.0f * sunrise_band) + (3.0f * variation)), 0, 255);
+580:   base.top.g = prv_clamp_i16(base.top.g + prv_round_i32((5.0f * deep_night) + (4.0f * golden_band) + (5.0f * midday)), 0, 255);
+581:   base.top.b = prv_clamp_i16(base.top.b + prv_round_i32((15.0f * deep_night) + (11.0f * blue_hour) + (8.0f * midday) - (4.0f * sunrise_band)), 0, 255);
+582: 
+583:   base.bottom.r = prv_clamp_i16(base.bottom.r + prv_round_i32((11.0f * sunrise_band) + (8.0f * golden_band) - (5.0f * midday) + (4.0f * variation)), 0, 255);
+584:   base.bottom.g = prv_clamp_i16(base.bottom.g + prv_round_i32((6.0f * golden_band) + (4.0f * midday)), 0, 255);
+585:   base.bottom.b = prv_clamp_i16(base.bottom.b + prv_round_i32((8.0f * deep_night) + (10.0f * blue_hour) + (8.0f * midday) - (6.0f * sunrise_band)), 0, 255);
+586: 
+587:   return base;
+588: #else
+589:   (void)altitude_deg;
+590:   return base;
+591: #endif
+592: }
+593: 
+594: static Palette prv_apply_minimum_palette_separation(Palette base, float altitude_deg,
+595:                                                     const RenderProfile *profile) {
+596: #ifdef PBL_COLOR
+597:   float phase_energy = prv_clampf((altitude_deg + 6.0f) / 28.0f, 0.0f, 1.0f);
+598:   int16_t top_luma = prv_luma_itu601(base.top);
+599:   int16_t bottom_luma = prv_luma_itu601(base.bottom);
+600:   int16_t luma_delta = (int16_t)prv_absf((float)(bottom_luma - top_luma));
+601:   int16_t chroma_delta = prv_channel_delta_abs(base.top, base.bottom);
+602: 
+603:   bool shoulder_phase = (altitude_deg >= -2.0f && altitude_deg <= 18.0f);
+604:   int16_t min_luma_delta = shoulder_phase
+605:     ? MIN_LUMA_DELTA_SHOULDER
+606:     : (int16_t)prv_round_i32((float)MIN_LUMA_DELTA_BASE + (6.0f * phase_energy));
+607:   int16_t min_chroma_delta = shoulder_phase
+608:     ? MIN_CHROMA_DELTA_SHOULDER
+609:     : (int16_t)prv_round_i32((float)MIN_CHROMA_DELTA_BASE + (20.0f * phase_energy));
+610: 
+611:   float luma_scale = (luma_delta > 0) ? ((float)min_luma_delta / (float)luma_delta) : 2.0f;
+612:   float chroma_scale = (chroma_delta > 0) ? ((float)min_chroma_delta / (float)chroma_delta) : 2.0f;
+613:   float required_scale = luma_scale > chroma_scale ? luma_scale : chroma_scale;
+614: 
+615:   if (required_scale > 1.0f) {
+616:     float cap = (1.20f + (0.35f * phase_energy)) * profile->gradient_widen_mult;
+617:     required_scale = prv_clampf(required_scale, 1.0f, cap);
+618:     base = prv_widen_palette_contrast(base, required_scale);
+619:   }
+620: 
+621:   // If clipping still leaves colors too close, force a gentle channel spread.
+622:   int16_t post_chroma = prv_channel_delta_abs(base.top, base.bottom);
+623:   if (post_chroma < min_chroma_delta) {
+624:     int16_t per_channel_target = min_chroma_delta / 3;
+625:     prv_expand_channel_pair_toward_delta(&base.top.r, &base.bottom.r, per_channel_target);
+626:     prv_expand_channel_pair_toward_delta(&base.top.g, &base.bottom.g, per_channel_target);
+627:     prv_expand_channel_pair_toward_delta(&base.top.b, &base.bottom.b, per_channel_target);
+628:   }
+629: 
+630:   return base;
+631: #else
+632:   (void)altitude_deg;
+633:   (void)profile;
+634:   return base;
+635: #endif
+636: }
+637: 
+638: static Palette prv_palette_for_altitude(float altitude_deg, const RenderProfile *profile) {
+639:   Palette out;
+640:   const int band_count = (int)(sizeof(s_atmosphere) / sizeof(s_atmosphere[0]));
+641: 
+642:   if (altitude_deg <= s_atmosphere[0].altitude) {
+643:     out.top = s_atmosphere[0].top;
+644:     out.bottom = s_atmosphere[0].bottom;
+645:     out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+646:     out = prv_apply_phase_theme(out, altitude_deg);
+647:     return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
+648:   }
+649: 
+650:   const AtmosphereBand *max_band = &s_atmosphere[band_count - 1];
+651:   if (altitude_deg >= max_band->altitude) {
+652:     float daylight_strength = prv_clampf((altitude_deg - (float)max_band->altitude) / 35.0f, 0.0f, 1.0f);
+653:     float contrast_scale = 1.0f + (daylight_strength * 0.45f * profile->gradient_widen_mult);
+654:     out.top = max_band->top;
+655:     out.bottom = max_band->bottom;
+656:     out = prv_widen_palette_contrast(out, contrast_scale);
+657:     out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+658:     out = prv_apply_phase_theme(out, altitude_deg);
+659:     return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
+660:   }
+661: 
+662:   for (int i = 0; i < band_count - 1; i++) {
+663:     const AtmosphereBand *low = &s_atmosphere[i];
+664:     const AtmosphereBand *high = &s_atmosphere[i + 1];
+665:     if (altitude_deg >= low->altitude && altitude_deg <= high->altitude) {
+666:       float range = (float)(high->altitude - low->altitude);
+667:       float t = (altitude_deg - (float)low->altitude) / (range <= 0.0f ? 1.0f : range);
+668:       out.top = prv_interpolate_rgb(low->top, high->top, t);
+669:       out.bottom = prv_interpolate_rgb(low->bottom, high->bottom, t);
+670:       out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+671:       out = prv_apply_phase_theme(out, altitude_deg);
+672:       return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
+673:     }
+674:   }
+675: 
+676:   out.top = s_atmosphere[0].top;
+677:   out.bottom = s_atmosphere[0].bottom;
+678:   out = prv_enhance_daylight_palette(out, altitude_deg, profile);
+679:   out = prv_apply_phase_theme(out, altitude_deg);
+680:   return prv_apply_minimum_palette_separation(out, altitude_deg, profile);
+681: }
+682: 
+683: static float prv_dither_offset(int16_t block_x, int16_t block_y, float amount) {
+684:   int16_t pattern = (int16_t)(((block_x * 13) + (block_y * 17)) & 3);
+685:   return (((float)pattern - 1.5f) / 1.5f) * amount;
+686: }
+687: 
+688: static GColor prv_make_color_rgb(Rgb rgb) {
+689: #ifdef PBL_COLOR
+690:   return GColorFromRGB((uint8_t)prv_clamp_i16(rgb.r, 0, 255),
+691:                        (uint8_t)prv_clamp_i16(rgb.g, 0, 255),
+692:                        (uint8_t)prv_clamp_i16(rgb.b, 0, 255));
+693: #else
+694:   int32_t brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+695:   return brightness > 127 ? GColorWhite : GColorBlack;
+696: #endif
+697: }
+698: 
+699: static bool prv_should_use_dark_foreground(Rgb sample_rgb) {
+700:   if (s_state.text_override_mode == TEXT_MODE_WHITE) {
+701:     return false;
+702:   }
+703:   if (s_state.text_override_mode == TEXT_MODE_BLACK || s_state.text_override_mode == TEXT_MODE_BLACK_GLOW) {
+704:     return true;
+705:   }
+706:   int32_t brightness = (sample_rgb.r * 299 + sample_rgb.g * 587 + sample_rgb.b * 114) / 1000;
+707:   return brightness > TEXT_BRIGHTNESS_THRESHOLD;
+708: }
+709: 
+710: static int16_t prv_text_contrast_margin(Rgb sample_rgb, bool dark_foreground) {
+711:   int16_t brightness = prv_luma_itu601(sample_rgb);
+712:   return dark_foreground ? brightness : (int16_t)(255 - brightness);
+713: }
+714: 
+715: static Rgb prv_sample_gradient_color(Palette palette, GRect bounds, uint32_t now_ms,
+716:                                      const RenderProfile *profile, float sample_x, float sample_y) {
+717:   int16_t width = bounds.size.w;
+718:   int16_t height = bounds.size.h;
+719:   float altitude_deg = (float)s_state.altitude_deg_x100 / 100.0f;
+720:   float event_moment = prv_event_moment_strength(now_ms);
+721:   float angle = prv_effective_gradient_angle_deg(now_ms, profile);
+722:   int16_t step = GRADIENT_STEP;
+723:   if ((int32_t)width * (int32_t)height > profile->large_step_area_threshold) {
+724:     step = profile->gradient_step_large;
+725:   }
+726: 
+727:   int32_t trig_angle = (int32_t)(angle * (float)TRIG_MAX_ANGLE / 360.0f);
+728:   float vx = sin_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+729:   float vy = -cos_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+730:   float cx = (float)width * 0.5f;
+731:   float cy = (float)height * 0.5f;
+732:   float max_projection = (prv_absf((float)width * vx) * 0.5f) + (prv_absf((float)height * vy) * 0.5f);
+733:   float denom = max_projection > 0.000001f ? max_projection : 0.000001f;
+734:   float projection_scale = 0.5f / denom;
+735: 
+736:   if (s_state.gradient_spread == 1) {
+737:     projection_scale *= 1.35f;
+738:   } else if (s_state.gradient_spread == 2) {
+739:     projection_scale *= 0.65f;
+740:   } else if (s_state.gradient_spread == 3) {
+741:     projection_scale *= 0.40f;
+742:   } else if (s_state.gradient_spread == 4) {
+743:     projection_scale *= 2.05f;
+744:   }
+745: 
+746:   float daylight_strength = prv_clampf((altitude_deg - 25.0f) / 30.0f, 0.0f, 1.0f);
+747:   float altitude_normalized = prv_clampf((altitude_deg + 5.0f) / 70.0f, 0.0f, 1.0f);
+748:   float phase_energy = prv_clampf((altitude_deg + 8.0f) / 30.0f, 0.0f, 1.0f);
+749:   uint16_t daily_seed = prv_daily_variation_seed();
+750: 
+751:   int32_t sun_trig = (int32_t)(((float)s_state.azimuth_deg_x100 / 100.0f) * (float)TRIG_MAX_ANGLE / 360.0f);
+752:   float sun_vx = sin_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
+753:   float sun_vy = -cos_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
+754: 
+755:   float min_dim = width < height ? width : height;
+756:   float bloom_offset = (1.0f - altitude_normalized) * (min_dim * 0.30f);
+757:   float bloom_x = cx + (sun_vx * bloom_offset);
+758:   float bloom_y = cy + (sun_vy * bloom_offset);
+759:   float bloom_variation = ((float)(daily_seed & 31) - 15.0f) / 15.0f;
+760:   float bloom_radius = min_dim * (0.18f + (0.08f * daylight_strength * profile->bloom_radius_mult));
+761:   bloom_radius *= 1.0f + (0.02f * bloom_variation);
+762:   float bloom_radius_sq = bloom_radius * bloom_radius;
+763:   float bloom_gain = 0.11f * daylight_strength * profile->bloom_gain_mult;
+764:   bloom_gain *= 1.0f + (0.05f * bloom_variation);
+765:   bloom_gain *= 1.0f + (0.45f * event_moment);
+766: 
+767:   float horizon_center_t = prv_clampf(0.58f + (0.08f * (0.5f - altitude_normalized)), 0.44f, 0.70f);
+768:   float horizon_target_t = prv_clampf(0.62f + (0.08f * (0.5f - altitude_normalized)), 0.48f, 0.74f);
+769:   float horizon_half_width = 0.18f;
+770:   float horizon_strength = (0.035f + (0.055f * phase_energy)) * (1.0f - (0.45f * daylight_strength));
+771:   horizon_strength *= profile->gradient_widen_mult;
+772:   horizon_strength *= 1.0f + (0.35f * event_moment);
+773: 
+774:   int32_t motion_mode = prv_effective_motion_mode();
+775:   float texture_strength = 0.012f + (0.016f * phase_energy);
+776:   if (motion_mode == MOTION_MODE_CALM) {
+777:     texture_strength *= 0.65f;
+778:   } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+779:     texture_strength *= 1.30f;
+780:   }
+781:   texture_strength *= 1.0f + (0.18f * event_moment);
+782: 
+783:   float y_t = prv_clampf(sample_y / (float)height, 0.0f, 1.0f);
+784:   float center_band = 1.0f - prv_clampf(prv_absf(y_t - 0.5f) / 0.34f, 0.0f, 1.0f);
+785:   float horizon_weight = 1.0f - prv_clampf(prv_absf(y_t - horizon_center_t) / horizon_half_width, 0.0f, 1.0f);
+786:   horizon_weight *= horizon_weight;
+787: 
+788:   float projection = ((sample_y - cy) * vy) + ((sample_x - cx) * vx);
+789:   float raw_factor = prv_clampf((projection * projection_scale) + 0.5f, 0.0f, 1.0f);
+790:   float smooth_factor = raw_factor * raw_factor * (3.0f - (2.0f * raw_factor));
+791:   float center_bias = 0.06f +
+792:                       (0.12f * phase_energy) +
+793:                       (0.08f * daylight_strength * phase_energy) +
+794:                       (0.06f * center_band * phase_energy);
+795:   center_bias += 0.05f * event_moment;
+796:   float factor = (raw_factor * (1.0f - center_bias)) + (smooth_factor * center_bias);
+797: 
+798:   if (center_band > 0.0f && phase_energy > 0.0f) {
+799:     float center_boost = 1.0f + (0.16f * center_band * phase_energy * (0.6f + (0.4f * daylight_strength)));
+800:     factor = ((factor - 0.5f) * center_boost) + 0.5f;
+801:   }
+802:   factor = prv_clampf(factor, 0.0f, 1.0f);
+803: 
+804:   if (daylight_strength > 0.0f) {
+805:     float widened = ((factor - 0.5f) * (1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult))) + 0.5f;
+806:     factor = prv_clampf(widened, 0.0f, 1.0f);
+807:   }
+808: 
+809:   if (horizon_weight > 0.0f) {
+810:     float pull = prv_clampf(horizon_strength * horizon_weight, 0.0f, 0.22f);
+811:     factor = (factor * (1.0f - pull)) + (horizon_target_t * pull);
+812:   }
+813: 
+814:   int32_t coarse_x = (int32_t)sample_x / (step * 6);
+815:   int32_t coarse_y = (int32_t)sample_y / (step * 6);
+816:   float coarse_noise = prv_noise_2d(coarse_x, coarse_y, daily_seed);
+817:   float detail_noise = prv_noise_2d((coarse_x * 2) + 7, (coarse_y * 2) - 3, daily_seed ^ 0x9E37u);
+818:   float cloud_noise = (coarse_noise * 0.70f) + (detail_noise * 0.30f);
+819:   float texture = cloud_noise * texture_strength * (0.85f + (0.15f * center_band));
+820:   factor = prv_clampf(factor + texture, 0.0f, 1.0f);
+821: 
+822:   if (daylight_strength > 0.0f) {
+823:     float dx = sample_x - bloom_x;
+824:     float dy = sample_y - bloom_y;
+825:     float dist_sq = (dx * dx) + (dy * dy);
+826:     if (dist_sq < bloom_radius_sq) {
+827:       float bloom = 1.0f - (dist_sq / bloom_radius_sq);
+828:       factor = prv_clampf(factor + (bloom * bloom_gain), 0.0f, 1.0f);
+829:     }
+830:   }
+831: 
+832:   Rgb color;
+833:   color.r = prv_lerp_i16(palette.top.r, palette.bottom.r, factor);
+834:   color.g = prv_lerp_i16(palette.top.g, palette.bottom.g, factor);
+835:   color.b = prv_lerp_i16(palette.top.b, palette.bottom.b, factor);
+836:   return color;
+837: }
+838: 
+839: static TextStyle prv_pick_text_style_for_row(Palette palette, GRect bounds, uint32_t now_ms,
+840:                                              const RenderProfile *profile, int16_t y_center) {
+841:   Rgb sample_l = prv_sample_gradient_color(palette, bounds, now_ms, profile, bounds.size.w * 0.28f, (float)y_center);
+842:   Rgb sample_c = prv_sample_gradient_color(palette, bounds, now_ms, profile, bounds.size.w * 0.50f, (float)y_center);
+843:   Rgb sample_r = prv_sample_gradient_color(palette, bounds, now_ms, profile, bounds.size.w * 0.72f, (float)y_center);
+844: 
+845:   int16_t avg_luma = (prv_luma_itu601(sample_l) + prv_luma_itu601(sample_c) + prv_luma_itu601(sample_r)) / 3;
+846:   bool dark_pref = avg_luma > TEXT_BRIGHTNESS_THRESHOLD;
+847: 
+848:   int16_t dark_margin = prv_text_contrast_margin(sample_l, true);
+849:   int16_t light_margin = prv_text_contrast_margin(sample_l, false);
+850: 
+851:   int16_t dark_c = prv_text_contrast_margin(sample_c, true);
+852:   int16_t light_c = prv_text_contrast_margin(sample_c, false);
+853:   if (dark_c < dark_margin) dark_margin = dark_c;
+854:   if (light_c < light_margin) light_margin = light_c;
+855: 
+856:   int16_t dark_r = prv_text_contrast_margin(sample_r, true);
+857:   int16_t light_r = prv_text_contrast_margin(sample_r, false);
+858:   if (dark_r < dark_margin) dark_margin = dark_r;
+859:   if (light_r < light_margin) light_margin = light_r;
+860: 
+861:   TextStyle style;
+862:   if (s_state.text_override_mode == TEXT_MODE_BLACK_GLOW) {
+863:     style.color = GColorBlack;
+864:     style.glow = true;
+865:     style.glow_color = GColorWhite;
+866:     return style;
+867:   }
+868:   if (s_state.text_override_mode == TEXT_MODE_WHITE) {
+869:     style.color = GColorWhite;
+870:     style.glow = false;
+871:     style.glow_color = GColorBlack;
+872:     return style;
+873:   }
+874:   if (s_state.text_override_mode == TEXT_MODE_BLACK) {
+875:     style.color = GColorBlack;
+876:     style.glow = false;
+877:     style.glow_color = GColorWhite;
+878:     return style;
+879:   }
+880: 
+881:   bool use_dark = dark_pref;
+882:   if ((use_dark && dark_margin < 84 && light_margin > dark_margin + 8) ||
+883:       (!use_dark && light_margin < 84 && dark_margin > light_margin + 8)) {
+884:     use_dark = dark_margin > light_margin;
+885:   }
+886: 
+887:   style.color = use_dark ? GColorBlack : GColorWhite;
+888:   int16_t chosen_margin = use_dark ? dark_margin : light_margin;
+889:   style.glow = chosen_margin < 92;
+890:   style.glow_color = use_dark ? GColorWhite : GColorBlack;
+891:   return style;
+892: }
+893: 
+894: static TextStyle prv_pick_text_style(Rgb sample_rgb) {
+895:   TextStyle style;
+896:   if (s_state.text_override_mode == TEXT_MODE_BLACK_GLOW) {
+897:     style.color = GColorBlack;
+898:     style.glow = true;
+899:     style.glow_color = GColorWhite;
+900:     return style;
+901:   }
+902: 
+903:   bool dark = prv_should_use_dark_foreground(sample_rgb);
+904:   style.color = dark ? GColorBlack : GColorWhite;
+905:   style.glow = false;
+906:   style.glow_color = dark ? GColorWhite : GColorBlack;
+907:   return style;
+908: }
+909: 
+910: static GSize prv_text_size(const char *text, GFont font, int16_t width, int16_t height) {
+911:   return graphics_text_layout_get_content_size(text, font, GRect(0, 0, width, height),
+912:                                                GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
+913: }
+914: 
+915: static int16_t prv_line_height_for_font(GFont font) {
+916:   GSize sample = prv_text_size("Ag", font, 64, 64);
+917:   return sample.h > 0 ? sample.h : 14;
+918: }
+919: 
+920: static void prv_draw_styled_text(GContext *ctx, const char *text, GFont font, TextStyle style,
+921:                                  int16_t x, int16_t y, int16_t width, int16_t height,
+922:                                  GTextAlignment alignment) {
+923:   GRect rect = GRect(x, y, width, height);
+924:   if (style.glow) {
+925:     graphics_context_set_text_color(ctx, style.glow_color);
+926:     graphics_draw_text(ctx, text, font, GRect(rect.origin.x - 1, rect.origin.y, rect.size.w, rect.size.h),
+927:                        GTextOverflowModeTrailingEllipsis, alignment, NULL);
+928:     graphics_draw_text(ctx, text, font, GRect(rect.origin.x + 1, rect.origin.y, rect.size.w, rect.size.h),
+929:                        GTextOverflowModeTrailingEllipsis, alignment, NULL);
+930:     graphics_draw_text(ctx, text, font, GRect(rect.origin.x, rect.origin.y - 1, rect.size.w, rect.size.h),
+931:                        GTextOverflowModeTrailingEllipsis, alignment, NULL);
+932:     graphics_draw_text(ctx, text, font, GRect(rect.origin.x, rect.origin.y + 1, rect.size.w, rect.size.h),
+933:                        GTextOverflowModeTrailingEllipsis, alignment, NULL);
+934:   }
+935: 
+936:   graphics_context_set_text_color(ctx, style.color);
+937:   graphics_draw_text(ctx, text, font, rect, GTextOverflowModeTrailingEllipsis, alignment, NULL);
+938: }
+939: 
+940: static int32_t prv_loading_floor_for_code(int32_t code) {
+941:   if (code == STATUS_GRABBING_LOCATION) return 10;
+942:   if (code == STATUS_CALCULATING_SUN) return 42;
+943:   if (code == STATUS_RESOLVING_CITY) return 58;
+944:   if (code == STATUS_SENDING_PAYLOAD) return 86;
+945:   if (code == STATUS_READY) return 100;
+946:   return 2;
+947: }
+948: 
+949: static int32_t prv_loading_ceiling_for_code(int32_t code) {
+950:   if (code == STATUS_GRABBING_LOCATION) return 45;
+951:   if (code == STATUS_CALCULATING_SUN) return 65;
+952:   if (code == STATUS_RESOLVING_CITY) return 88;
+953:   if (code == STATUS_SENDING_PAYLOAD) return 95;
+954:   if (code == STATUS_READY) return 100;
+955:   return 25;
+956: }
+957: 
+958: static const char *prv_status_text_from_code(int32_t code) {
+959:   if (code == STATUS_STARTING) return "Starting";
+960:   if (code == STATUS_GRABBING_LOCATION) return "Grabbing location";
+961:   if (code == STATUS_CALCULATING_SUN) return "Calculating sun";
+962:   if (code == STATUS_RESOLVING_CITY) return "Resolving city";
+963:   if (code == STATUS_SENDING_PAYLOAD) return "Sending payload";
+964:   if (code == STATUS_READY) return "Ready";
+965:   return "Starting";
+966: }
+967: 
+968: static const char *prv_loading_status_line(void) {
+969:   if (s_state.loading_hint_mode == 1) {
+970:     return "Waiting for phone GPS";
+971:   }
+972:   if (s_state.loading_hint_mode == 2) {
+973:     return "Still loading";
+974:   }
+975:   return prv_status_text_from_code(s_state.status_code);
+976: }
+977: 
+978: static void prv_set_loading_status(int32_t code) {
+979:   int32_t clamped = prv_clamp_i32(code, STATUS_STARTING, STATUS_READY);
+980:   if (clamped != s_state.status_code) {
+981:     s_state.status_code = clamped;
+982:     s_state.loading_status_started_ms = prv_now_ms();
+983:   }
+984: }
+985: 
+986: static void prv_set_loading_progress_target(int32_t percent) {
+987:   int32_t clamped = prv_clamp_i32(percent, 0, 100);
+988:   if (clamped > s_state.loading_progress_target) {
+989:     s_state.loading_progress_target = clamped;
+990:   }
+991: }
+992: 
+993: static bool prv_advance_loading_progress(uint32_t now_ms) {
+994:   int32_t ceiling = prv_loading_ceiling_for_code(s_state.status_code);
+995:   int32_t floor = prv_loading_floor_for_code(s_state.status_code);
+996:   int32_t elapsed_in_stage = (int32_t)(now_ms - s_state.loading_status_started_ms);
+997:   int32_t idle_ramp_target = floor + (elapsed_in_stage / 320);
+998:   if (idle_ramp_target > ceiling) {
+999:     idle_ramp_target = ceiling;
+1000:   }
+1001:   int32_t desired = s_state.loading_progress_target;
+1002:   if (desired > ceiling) {
+1003:     desired = ceiling;
+1004:   }
+1005:   if (desired < idle_ramp_target) {
+1006:     desired = idle_ramp_target;
+1007:   }
+1008: 
+1009:   if (desired <= s_state.loading_progress) {
+1010:     return false;
+1011:   }
+1012: 
+1013:   int32_t delta = desired - s_state.loading_progress;
+1014:   int32_t step = delta > 10 ? 3 : 1;
+1015:   s_state.loading_progress = desired < (s_state.loading_progress + step) ? desired : (s_state.loading_progress + step);
+1016:   return true;
+1017: }
+1018: 
+1019: static void prv_start_loading_timer(void);
+1020: static void prv_start_animation_timer(void);
+1021: static void prv_restart_animation_timer(void);
+1022: 
+1023: static void prv_begin_loading(void) {
+1024:   s_state.launch_done = false;
+1025:   s_state.has_payload = false;
+1026:   s_state.loading_started_ms = prv_now_ms();
+1027:   s_state.loading_status_started_ms = s_state.loading_started_ms;
+1028:   s_state.status_code = STATUS_STARTING;
+1029:   s_state.loading_progress = 0;
+1030:   s_state.loading_progress_target = 0;
+1031:   s_state.loading_hint_mode = 0;
+1032:   s_state.launch_transition_deadline_ms = 0;
+1033:   prv_start_loading_timer();
+1034: }
+1035: 
+1036: static void prv_format_altitude_x100(int32_t altitude_x100, char *out, size_t len) {
+1037:   int32_t abs_value = altitude_x100 < 0 ? -altitude_x100 : altitude_x100;
+1038:   int32_t whole = abs_value / 100;
+1039:   int32_t tenth = (abs_value % 100 + 5) / 10;
+1040:   if (tenth == 10) {
+1041:     whole += 1;
+1042:     tenth = 0;
+1043:   }
+1044:   snprintf(out, len, "%s%ld.%ld", altitude_x100 < 0 ? "-" : "", (long)whole, (long)tenth);
+1045: }
+1046: 
+1047: static void prv_format_azimuth_x100(int32_t azimuth_x100, char *out, size_t len) {
+1048:   int32_t normalized = azimuth_x100 % 36000;
+1049:   if (normalized < 0) {
+1050:     normalized += 36000;
+1051:   }
+1052: 
+1053:   int32_t whole = normalized / 100;
+1054:   int32_t tenth = (normalized % 100 + 5) / 10;
+1055:   if (tenth == 10) {
+1056:     whole = (whole + 1) % 360;
+1057:     tenth = 0;
+1058:   }
+1059:   snprintf(out, len, "%ld.%ld", (long)whole, (long)tenth);
+1060: }
+1061: 
+1062: static const char *prv_weather_code_label(int32_t code) {
+1063:   if (code == 0) return "clear";
+1064:   if (code >= 1 && code <= 3) return "clouds";
+1065:   if (code == 45 || code == 48) return "fog";
+1066:   if (code >= 51 && code <= 57) return "drizzle";
+1067:   if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+1068:   if ((code >= 71 && code <= 77) || code == 85 || code == 86) return "snow";
+1069:   if (code >= 95) return "storm";
+1070:   return "wx";
+1071: }
+1072: 
+1073: static void prv_format_weather_text(char *out, size_t len) {
+1074:   out[0] = '\0';
+1075: 
+1076:   if (s_state.weather_enabled == 0 || s_state.weather_detail_level <= 0) {
+1077:     return;
+1078:   }
+1079: 
+1080:   if (s_state.weather_status == WEATHER_STATUS_FAILED) {
+1081:     snprintf(out, len, "wx err");
+1082:     return;
+1083:   }
+1084: 
+1085:   if (s_state.weather_updated_epoch <= 0) {
+1086:     snprintf(out, len, "wx --");
+1087:     return;
+1088:   }
+1089: 
+1090:   int32_t temp_x10 = s_state.weather_temp_x10;
+1091:   int32_t abs_temp_x10 = temp_x10 < 0 ? -temp_x10 : temp_x10;
+1092:   int32_t temp_whole = abs_temp_x10 / 10;
+1093:   int32_t temp_tenth = abs_temp_x10 % 10;
+1094:   const char *label = prv_weather_code_label(s_state.weather_code);
+1095:   char unit = s_state.weather_unit_fahrenheit ? 'F' : 'C';
+1096:   const char *stale = (s_state.weather_status == WEATHER_STATUS_STALE) ? "~" : "";
+1097: 
+1098:   if (s_state.weather_detail_level >= 2) {
+1099:     int32_t cloud = prv_clamp_i32(s_state.weather_cloud_cover, 0, 100);
+1100:     snprintf(out, len, "%s%s%ld.%ld%c %s %ld%%",
+1101:              stale,
+1102:              temp_x10 < 0 ? "-" : "",
+1103:              (long)temp_whole,
+1104:              (long)temp_tenth,
+1105:              unit,
+1106:              label,
+1107:              (long)cloud);
+1108:     return;
+1109:   }
+1110: 
+1111:   snprintf(out, len, "%s%s%ld.%ld%c %s",
+1112:            stale,
+1113:            temp_x10 < 0 ? "-" : "",
+1114:            (long)temp_whole,
+1115:            (long)temp_tenth,
+1116:            unit,
+1117:            label);
+1118: }
+1119: 
+1120: static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfile *profile) {
+1121:   int32_t base_angle_x100 = s_state.gradient_angle_deg_x100;
+1122: 
+1123:   if (s_state.angle_transition_active) {
+1124:     uint32_t elapsed = now_ms - s_state.angle_transition_started_ms;
+1125:     float t = prv_clampf((float)elapsed / (float)ANGLE_TRANSITION_MS, 0.0f, 1.0f);
+1126:     float eased = t * t * (3.0f - (2.0f * t));
+1127:     int32_t delta = prv_shortest_delta_degrees_x100(s_state.previous_gradient_angle_deg_x100,
+1128:                                                      s_state.target_gradient_angle_deg_x100);
+1129:     base_angle_x100 = s_state.previous_gradient_angle_deg_x100 + prv_round_i32((float)delta * eased);
+1130:     base_angle_x100 = prv_wrap_degrees_x100(base_angle_x100);
+1131: 
+1132:     if (elapsed >= ANGLE_TRANSITION_MS) {
+1133:       s_state.angle_transition_active = false;
+1134:       s_state.gradient_angle_deg_x100 = s_state.target_gradient_angle_deg_x100;
+1135:       base_angle_x100 = s_state.gradient_angle_deg_x100;
+1136:     }
+1137:   }
+1138: 
+1139:   int32_t motion_mode = prv_effective_motion_mode();
+1140:   float drift_scale = profile->drift_mult;
+1141:   if (motion_mode == MOTION_MODE_CALM) {
+1142:     drift_scale *= 0.35f;
+1143:   } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+1144:     drift_scale *= 1.45f;
+1145:   }
+1146:   float ambient_drift = prv_wave_sine_ms(now_ms, AMBIENT_DRIFT_PERIOD_MS, 0) * AMBIENT_DRIFT_AMPLITUDE_DEG * drift_scale;
+1147:   float refresh_ease_drift = 0.0f;
+1148:   if (s_state.last_payload_received_ms != 0) {
+1149:     uint32_t since_payload = now_ms - s_state.last_payload_received_ms;
+1150:     uint32_t boost_window_ms = REFRESH_DRIFT_BOOST_MS;
+1151:     if (motion_mode == MOTION_MODE_CALM) {
+1152:       boost_window_ms = 2500;
+1153:     } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+1154:       boost_window_ms = 6500;
+1155:     }
+1156:     if (since_payload < boost_window_ms) {
+1157:       float ramp = 1.0f - ((float)since_payload / (float)boost_window_ms);
+1158:       float boost_amount = 1.2f;
+1159:       if (motion_mode == MOTION_MODE_CALM) {
+1160:         boost_amount = 0.45f;
+1161:       } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+1162:         boost_amount = 1.8f;
+1163:       }
+1164:       refresh_ease_drift = prv_wave_sine_ms(now_ms, 3000, 450) * boost_amount * ramp * profile->drift_mult;
+1165:     }
+1166:   }
+1167: 
+1168:   float angle = ((float)base_angle_x100 / 100.0f) + ambient_drift + refresh_ease_drift;
+1169:   while (angle < 0.0f) {
+1170:     angle += 360.0f;
+1171:   }
+1172:   while (angle >= 360.0f) {
+1173:     angle -= 360.0f;
+1174:   }
+1175:   return angle;
+1176: }
+1177: 
+1178: static float prv_dynamic_dither_strength(uint32_t now_ms, const RenderProfile *profile) {
+1179:   int32_t motion_mode = prv_effective_motion_mode();
+1180:   float wave = (prv_wave_sine_ms(now_ms, 22000, 1700) + 1.0f) * 0.5f;
+1181:   float variation_scale = 1.0f;
+1182:   if (motion_mode == MOTION_MODE_CALM) {
+1183:     variation_scale = 0.45f;
+1184:   } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+1185:     variation_scale = 1.35f;
+1186:   }
+1187:   float strength = DITHER_STRENGTH * (0.85f + (0.25f * wave * variation_scale));
+1188:   strength *= profile->dither_mult;
+1189: 
+1190:   if (s_state.last_payload_received_ms != 0) {
+1191:     uint32_t since_payload = now_ms - s_state.last_payload_received_ms;
+1192:     if (since_payload < REFRESH_DRIFT_BOOST_MS) {
+1193:       float boost = 1.0f - ((float)since_payload / (float)REFRESH_DRIFT_BOOST_MS);
+1194:       float boost_amount = 0.35f;
+1195:       if (motion_mode == MOTION_MODE_CALM) {
+1196:         boost_amount = 0.15f;
+1197:       } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+1198:         boost_amount = 0.55f;
+1199:       }
+1200:       strength *= 1.0f + (boost_amount * boost);
+1201:     }
+1202:   }
+1203:   return prv_clampf(strength, 0.015f, 0.085f);
+1204: }
+1205: 
+1206: static float prv_event_moment_strength(uint32_t now_ms) {
+1207:   if (s_state.event_moment_until_ms == 0 || now_ms >= s_state.event_moment_until_ms) {
+1208:     return 0.0f;
+1209:   }
+1210: 
+1211:   float t = (float)(s_state.event_moment_until_ms - now_ms) / (float)EVENT_MOMENT_MS;
+1212:   t = prv_clampf(t, 0.0f, 1.0f);
+1213:   return t * t * (3.0f - (2.0f * t));
+1214: }
+1215: 
+1216: static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette, uint32_t now_ms,
+1217:                                     const RenderProfile *profile) {
+1218:   int16_t width = bounds.size.w;
+1219:   int16_t height = bounds.size.h;
+1220:   float angle = prv_effective_gradient_angle_deg(now_ms, profile);
+1221:   float altitude_deg = (float)s_state.altitude_deg_x100 / 100.0f;
+1222:   float dither_strength = prv_dynamic_dither_strength(now_ms, profile);
+1223:   float event_moment = prv_event_moment_strength(now_ms);
+1224:   int16_t step = GRADIENT_STEP;
+1225:   if ((int32_t)width * (int32_t)height > profile->large_step_area_threshold) {
+1226:     step = profile->gradient_step_large;
+1227:   }
+1228: 
+1229:   int32_t trig_angle = (int32_t)(angle * (float)TRIG_MAX_ANGLE / 360.0f);
+1230:   float vx = sin_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+1231:   float vy = -cos_lookup(trig_angle) / (float)TRIG_MAX_RATIO;
+1232:   float cx = (float)width * 0.5f;
+1233:   float cy = (float)height * 0.5f;
+1234:   float max_projection = (prv_absf((float)width * vx) * 0.5f) + (prv_absf((float)height * vy) * 0.5f);
+1235:   float denom = max_projection > 0.000001f ? max_projection : 0.000001f;
+1236:   float projection_scale = 0.5f / denom;
+1237: 
+1238:   if (s_state.gradient_spread == 1) {
+1239:     projection_scale *= 1.35f;
+1240:   } else if (s_state.gradient_spread == 2) {
+1241:     projection_scale *= 0.65f;
+1242:   } else if (s_state.gradient_spread == 4) {
+1243:     projection_scale *= 2.05f;
+1244:   } else if (s_state.gradient_spread == 3) {
+1245:     projection_scale *= 0.40f;
+1246:   }
+1247: 
+1248:   float daylight_strength = prv_clampf((altitude_deg - 25.0f) / 30.0f, 0.0f, 1.0f);
+1249:   int32_t sun_trig = (int32_t)(((float)s_state.azimuth_deg_x100 / 100.0f) * (float)TRIG_MAX_ANGLE / 360.0f);
+1250:   float sun_vx = sin_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
+1251:   float sun_vy = -cos_lookup(sun_trig) / (float)TRIG_MAX_RATIO;
+1252:   float min_dim = width < height ? width : height;
+1253:   float altitude_normalized = prv_clampf((altitude_deg + 5.0f) / 70.0f, 0.0f, 1.0f);
+1254:   float phase_energy = prv_clampf((altitude_deg + 8.0f) / 30.0f, 0.0f, 1.0f);
+1255:   uint16_t daily_seed = prv_daily_variation_seed();
+1256:   float bloom_offset = (1.0f - altitude_normalized) * (min_dim * 0.30f);
+1257:   float bloom_x = cx + (sun_vx * bloom_offset);
+1258:   float bloom_y = cy + (sun_vy * bloom_offset);
+1259:   float bloom_variation = ((float)(daily_seed & 31) - 15.0f) / 15.0f;
+1260:   float bloom_radius = min_dim * (0.18f + (0.08f * daylight_strength * profile->bloom_radius_mult));
+1261:   bloom_radius *= 1.0f + (0.02f * bloom_variation);
+1262:   float bloom_radius_sq = bloom_radius * bloom_radius;
+1263:   float bloom_gain = 0.11f * daylight_strength * profile->bloom_gain_mult;
+1264:   bloom_gain *= 1.0f + (0.05f * bloom_variation);
+1265:   bloom_gain *= 1.0f + (0.45f * event_moment);
+1266: 
+1267:   float horizon_center_t = prv_clampf(0.58f + (0.08f * (0.5f - altitude_normalized)), 0.44f, 0.70f);
+1268:   float horizon_target_t = prv_clampf(0.62f + (0.08f * (0.5f - altitude_normalized)), 0.48f, 0.74f);
+1269:   float horizon_half_width = 0.18f;
+1270:   float horizon_strength = (0.035f + (0.055f * phase_energy)) * (1.0f - (0.45f * daylight_strength));
+1271:   horizon_strength *= profile->gradient_widen_mult;
+1272:   horizon_strength *= 1.0f + (0.35f * event_moment);
+1273: 
+1274:   int32_t motion_mode = prv_effective_motion_mode();
+1275:   float texture_strength = 0.012f + (0.016f * phase_energy);
+1276:   if (motion_mode == MOTION_MODE_CALM) {
+1277:     texture_strength *= 0.65f;
+1278:   } else if (motion_mode == MOTION_MODE_DYNAMIC) {
+1279:     texture_strength *= 1.30f;
+1280:   }
+1281:   texture_strength *= 1.0f + (0.18f * event_moment);
+1282: 
+1283:   for (int16_t y = 0; y < height; y += step) {
+1284:     float y_center_t = prv_clampf(((float)y + ((float)step * 0.5f)) / (float)height, 0.0f, 1.0f);
+1285:     float center_band = 1.0f - prv_clampf(prv_absf(y_center_t - 0.5f) / 0.34f, 0.0f, 1.0f);
+1286:     float horizon_weight = 1.0f - prv_clampf(prv_absf(y_center_t - horizon_center_t) / horizon_half_width, 0.0f, 1.0f);
+1287:     horizon_weight *= horizon_weight;
+1288:     float y_projection = ((float)y - cy) * vy;
+1289:     
+1290:     int32_t coarse_y = y / (step * 6);
+1291:     int16_t block_y = y / step;
+1292:     float texture_base = texture_strength * (0.85f + (0.15f * center_band));
+1293:     
+1294:     float projection = y_projection + (-cx * vx);
+1295:     float projection_step = (float)step * vx;
+1296: 
+1297:     float center_bias_base = 0.06f + (0.12f * phase_energy) + (0.08f * daylight_strength * phase_energy) + (0.06f * center_band * phase_energy) + (0.05f * event_moment);
+1298: 
+1299:     float center_boost = 1.0f;
+1300:     bool do_center_boost = (center_band > 0.0f && phase_energy > 0.0f);
+1301:     if (do_center_boost) {
+1302:       center_boost = 1.0f + (0.16f * center_band * phase_energy * (0.6f + (0.4f * daylight_strength)));
+1303:     }
+1304:     
+1305:     float widened_mult = 1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult);
+1306:     float horizon_pull = prv_clampf(horizon_strength * horizon_weight, 0.0f, 0.22f);
+1307:     
+1308:     float sample_y = (float)y + ((float)step * 0.5f);
+1309:     float dy = sample_y - bloom_y;
+1310:     float dy_sq = dy * dy;
+1311:     
+1312:     int32_t last_coarse_x = -1;
+1313:     float cached_cloud_noise = 0.0f;
+1314: 
+1315:     for (int16_t x = 0; x < width; x += step) {
+1316:       int16_t block_x = x / step;
+1317:       float raw_factor = prv_clampf((projection * projection_scale) + 0.5f, 0.0f, 1.0f);
+1318: 
+1319:       float smooth_factor = raw_factor * raw_factor * (3.0f - (2.0f * raw_factor));
+1320:       float factor = (raw_factor * (1.0f - center_bias_base)) + (smooth_factor * center_bias_base);
+1321: 
+1322:       if (do_center_boost) {
+1323:         factor = ((factor - 0.5f) * center_boost) + 0.5f;
+1324:       }
+1325:       factor = prv_clampf(factor, 0.0f, 1.0f);
+1326: 
+1327:       if (daylight_strength > 0.0f) {
+1328:         float widened = ((factor - 0.5f) * widened_mult) + 0.5f;
+1329:         factor = prv_clampf(widened, 0.0f, 1.0f);
+1330:       }
+1331: 
+1332:       if (horizon_weight > 0.0f) {
+1333:         factor = (factor * (1.0f - horizon_pull)) + (horizon_target_t * horizon_pull);
+1334:       }
+1335: 
+1336:       int32_t coarse_x = x / (step * 6);
+1337:       if (coarse_x != last_coarse_x) {
+1338:         float coarse_noise = prv_noise_2d(coarse_x, coarse_y, daily_seed);
+1339:         float detail_noise = prv_noise_2d((coarse_x * 2) + 7, (coarse_y * 2) - 3, daily_seed ^ 0x9E37u);
+1340:         cached_cloud_noise = (coarse_noise * 0.70f) + (detail_noise * 0.30f);
+1341:         last_coarse_x = coarse_x;
+1342:       }
+1343:       
+1344:       float texture = cached_cloud_noise * texture_base;
+1345:       factor = prv_clampf(factor + texture, 0.0f, 1.0f);
+1346: 
+1347:       factor = prv_clampf(factor + prv_dither_offset(block_x, block_y, dither_strength), 0.0f, 1.0f);
+1348: 
+1349:       if (daylight_strength > 0.0f) {
+1350:         float sample_x = (float)x + ((float)step * 0.5f);
+1351:         float dx = sample_x - bloom_x;
+1352:         float dist_sq = (dx * dx) + dy_sq;
+1353:         if (dist_sq < bloom_radius_sq) {
+1354:           float bloom = 1.0f - (dist_sq / bloom_radius_sq);
+1355:           factor = prv_clampf(factor + (bloom * bloom_gain), 0.0f, 1.0f);
+1356:         }
+1357:       }
+1358: 
+1359:       Rgb color;
+1360:       color.r = prv_lerp_i16(palette.top.r, palette.bottom.r, factor);
+1361:       color.g = prv_lerp_i16(palette.top.g, palette.bottom.g, factor);
+1362:       color.b = prv_lerp_i16(palette.top.b, palette.bottom.b, factor);
+1363: 
+1364:       graphics_context_set_fill_color(ctx, prv_make_color_rgb(color));
+1365:       graphics_fill_rect(ctx, GRect(x, y, step, step), 0, GCornerNone);
+1366:       
+1367:       projection += projection_step;
+1368:     }
+1369:   }
+1370: }
+1371: 
+1372: static void prv_draw_refresh_badge(GContext *ctx, GRect bounds, uint32_t now_ms) {
+1373:   if (now_ms >= s_state.refresh_badge_until_ms) {
+1374:     return;
+1375:   }
+1376: 
+1377:   float remaining = (float)(s_state.refresh_badge_until_ms - now_ms) / (float)REFRESH_BADGE_MS;
+1378:   remaining = prv_clampf(remaining, 0.0f, 1.0f);
+1379:   float pulse = (prv_wave_sine_ms(now_ms, 650, 0) + 1.0f) * 0.5f;
+1380:   int16_t size = 4 + prv_round_i32(2.0f * pulse);
+1381:   int16_t x = bounds.size.w - size - 5;
+1382:   int16_t y = 5;
+1383: 
+1384: #ifdef PBL_COLOR
+1385:   Rgb indicator = {
+1386:     .r = prv_clamp_i16(160 + prv_round_i32(70.0f * remaining), 0, 255),
+1387:     .g = prv_clamp_i16(220 + prv_round_i32(20.0f * remaining), 0, 255),
+1388:     .b = 255
+1389:   };
+1390:   graphics_context_set_fill_color(ctx, prv_make_color_rgb(indicator));
+1391: #else
+1392:   graphics_context_set_fill_color(ctx, GColorWhite);
+1393: #endif
+1394:   graphics_fill_rect(ctx, GRect(x, y, size, size), 1, GCornersAll);
+1395: }
+1396: 
+1397: static void prv_resolve_city_name(char *out, size_t len) {
+1398:   if (s_state.city_name[0] != '\0' && strcmp(s_state.city_name, "Current") != 0 &&
+1399:       strcmp(s_state.city_name, "Manual") != 0 && strcmp(s_state.city_name, "Cached") != 0 &&
+1400:       strcmp(s_state.city_name, "Backup") != 0) {
+1401:     snprintf(out, len, "%s", s_state.city_name);
+1402:     return;
+1403:   }
+1404: 
+1405:   if (s_state.source_code == SOURCE_CHICAGO) {
+1406:     snprintf(out, len, "Chicago");
+1407:     return;
+1408:   }
+1409:   if (s_state.source_code == SOURCE_MANUAL) {
+1410:     snprintf(out, len, "Manual");
+1411:     return;
+1412:   }
+1413:   if (s_state.source_code == SOURCE_CACHED) {
+1414:     snprintf(out, len, "Cached");
+1415:     return;
+1416:   }
+1417:   snprintf(out, len, "Local");
+1418: }
+1419: 
+1420: static void prv_draw_face(GContext *ctx, GRect bounds) {
+1421:   uint32_t now_ms = prv_now_ms();
+1422:   const RenderProfile *profile = s_active_profile ? s_active_profile : &s_render_profiles[0];
+1423:   float altitude_deg = (float)s_state.altitude_deg_x100 / 100.0f;
+1424:   Palette palette = prv_palette_for_altitude(altitude_deg, profile);
+1425:   prv_draw_solar_gradient(ctx, bounds, palette, now_ms, profile);
+1426: 
+1427:   time_t now = time(NULL);
+1428:   struct tm *time_info = localtime(&now);
+1429: 
+1430:   bool is_24h = clock_is_24h_style();
+1431:   if (s_state.time_format == 1) {
+1432:     is_24h = false;
+1433:   } else if (s_state.time_format == 2) {
+1434:     is_24h = true;
+1435:   }
+1436: 
+1437:   char time_text[8];
+1438:   if (is_24h) {
+1439:     snprintf(time_text, sizeof(time_text), "%02d:%02d", time_info->tm_hour, time_info->tm_min);
+1440:   } else {
+1441:     int hours = time_info->tm_hour % 12;
+1442:     if (hours == 0) {
+1443:       hours = 12;
+1444:     }
+1445:     snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
+1446:   }
+1447: 
+1448:   int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
+1449:   GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
+1450: 
+1451:   char location_text[48];
+1452:   location_text[0] = '\0';
+1453:   prv_resolve_city_name(location_text, sizeof(location_text));
+1454: 
+1455:   char altitude_text[32];
+1456:   altitude_text[0] = '\0';
+1457:   char alt_value[24];
+1458:   prv_format_altitude_x100(s_state.altitude_deg_x100, alt_value, sizeof(alt_value));
+1459:   snprintf(altitude_text, sizeof(altitude_text), "alt %s deg", alt_value);
+1460: 
+1461:   char weather_text[56];
+1462:   prv_format_weather_text(weather_text, sizeof(weather_text));
+1463: 
+1464:   char solar_phase_text[32];
+1465:   solar_phase_text[0] = '\0';
+1466:   if (s_state.current_solar_phase_id >= 0) {
+1467:     snprintf(solar_phase_text, sizeof(solar_phase_text), "%s", s_band_names[s_state.current_solar_phase_id]);
+1468:   }
+1469: 
+1470:   char next_phase_text[48];
+1471:   next_phase_text[0] = '\0';
+1472:   if (s_state.next_solar_phase_epoch > 0) {
+1473:     int32_t diff = s_state.next_solar_phase_epoch - time(NULL);
+1474:     if (diff > 0) {
+1475:       int32_t diff_mins = diff / 60;
+1476:       int32_t h = diff_mins / 60;
+1477:       int32_t m = diff_mins % 60;
+1478:       if (h > 0) {
+1479:         snprintf(next_phase_text, sizeof(next_phase_text), "%dh %dm to %s", (int)h, (int)m, s_band_names[s_state.next_solar_phase_id]);
+1480:       } else {
+1481:         snprintf(next_phase_text, sizeof(next_phase_text), "%dm to %s", (int)m, s_band_names[s_state.next_solar_phase_id]);
+1482:       }
+1483:     }
+1484:   }
+1485: 
+1486:   char date_text[32];
+1487:   date_text[0] = '\0';
+1488:   strftime(date_text, sizeof(date_text), "%a, %b %e", time_info);
+1489: 
+1490:   char battery_text[16];
+1491:   battery_text[0] = '\0';
+1492:   snprintf(battery_text, sizeof(battery_text), "Bat: %d%%", battery_state_service_peek().charge_percent);
+1493: 
+1494:   const char* available_texts[] = {
+1495:     "", // 0 = None
+1496:     date_text, // 1
+1497:     location_text, // 2
+1498:     weather_text, // 3
+1499:     altitude_text, // 4
+1500:     solar_phase_text, // 5
+1501:     next_phase_text, // 6
+1502:     battery_text // 7
+1503:   };
+1504: 
+1505:   const char *active_lines[6]; // Max 6 lines
+1506:   int16_t info_line_count = 0;
+1507: 
+1508:   int32_t slots[] = {
+1509:     s_state.footer_slot_1,
+1510:     s_state.footer_slot_2,
+1511:     s_state.footer_slot_3,
+1512:     s_state.footer_slot_4,
+1513:     s_state.footer_slot_5,
+1514:     s_state.footer_slot_6
+1515:   };
+1516: 
+1517:   for (int i = 0; i < 6; i++) {
+1518:     int32_t slot = slots[i];
+1519:     if (slot > 0 && slot <= 7) {
+1520:       const char *text = available_texts[slot];
+1521:       if (text && text[0] != '\0') {
+1522:         active_lines[info_line_count++] = text;
+1523:       }
+1524:     }
+1525:   }
+1526: 
+1527:   int16_t side_pad = prv_clamp_i16(bounds.size.w / 18, 4, 16);
+1528:   int16_t top_bottom_pad = prv_clamp_i16(bounds.size.h / 12, 8, 26);
+1529:   int16_t content_w = bounds.size.w - (2 * side_pad);
+1530:   if (content_w < 20) {
+1531:     content_w = bounds.size.w;
+1532:     side_pad = 0;
+1533:   }
+1534: 
+1535:   GFont info_font = bounds.size.h < 200 ? s_info_font_small : s_info_font_large;
+1536:   int16_t info_line_h = prv_line_height_for_font(info_font);
+1537:   int16_t line_gap_main = prv_clamp_i16(bounds.size.h / 36, 2, 8);
+1538:   int16_t line_gap_info = prv_clamp_i16(bounds.size.h / 48, 1, 6);
+1539: 
+1540:   GSize time_size = prv_text_size(time_text, time_font, content_w, bounds.size.h);
+1541: 
+1542:   int16_t block_h = time_size.h;
+1543:   if (info_line_count > 0) {
+1544:     block_h += line_gap_main;
+1545:     block_h += (int16_t)(info_line_h * info_line_count);
+1546:     block_h += (int16_t)(line_gap_info * (info_line_count - 1));
+1547:   }
+1548: 
+1549:   int16_t available_h = bounds.size.h - (2 * top_bottom_pad);
+1550:   if (block_h > available_h) {
+1551:     line_gap_main = 1;
+1552:     line_gap_info = 1;
+1553:     block_h = time_size.h;
+1554:     if (info_line_count > 0) {
+1555:       block_h += line_gap_main;
+1556:       block_h += (int16_t)(info_line_h * info_line_count);
+1557:       block_h += (int16_t)(line_gap_info * (info_line_count - 1));
+1558:     }
+1559:   }
+1560: 
+1561:   int16_t start_y = top_bottom_pad;
+1562:   if (available_h > block_h) {
+1563:     start_y += (available_h - block_h) / 2;
+1564:   }
+1565:   start_y -= (bounds.size.h / 24); // optical adjustment for font padding
+1566: 
+1567:   int16_t y_cursor = start_y;
+1568:   int16_t time_center_y = y_cursor + (time_size.h / 2);
+1569:   TextStyle time_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, time_center_y);
+1570:   prv_draw_styled_text(ctx, time_text, time_font, time_style,
+1571:                        side_pad, y_cursor, content_w, time_size.h + 2, GTextAlignmentCenter);
+1572:   y_cursor += time_size.h;
+1573: 
+1574:   if (info_line_count > 0) {
+1575:     y_cursor += line_gap_main;
+1576:   }
+1577: 
+1578:   for (int i = 0; i < info_line_count; i++) {
+1579:     int16_t center_y = y_cursor + (info_line_h / 2);
+1580:     TextStyle style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, center_y);
+1581:     prv_draw_styled_text(ctx, active_lines[i], info_font, style,
+1582:                          side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
+1583:     y_cursor += info_line_h;
+1584:     if (i < info_line_count - 1) {
+1585:       y_cursor += line_gap_info;
+1586:     }
+1587:   }
+1588: 
+1589:   if (s_state.dev_mode_enabled && s_state.dev_show_debug_overlay) {
+1590:     char az_text[16];
+1591:     prv_format_azimuth_x100(s_state.azimuth_deg_x100, az_text, sizeof(az_text));
+1592: 
+1593:     char dev_text[48];
+1594:     snprintf(dev_text, sizeof(dev_text), "%s az %s", s_state.dev_sweep_enabled ? "SWEEP" : "DEV", az_text);
+1595: 
+1596:     Rgb dev_sample = prv_interpolate_rgb(palette.top, palette.bottom, 0.2f);
+1597:     TextStyle dev_style = prv_pick_text_style(dev_sample);
+1598:     prv_draw_styled_text(ctx, dev_text, s_info_font_small, dev_style,
+1599:                          4, 4, bounds.size.w - 8, 18, GTextAlignmentLeft);
+1600:   }
+1601: 
+1602:   prv_draw_refresh_badge(ctx, bounds, now_ms);
+1603: }
+1604: 
+1605: static void prv_draw_loading_card(GContext *ctx, GRect bounds) {
+1606:   GColor black = GColorBlack;
+1607:   GColor white = GColorWhite;
+1608:   GColor panel = prv_make_color_rgb((Rgb){18, 18, 28});
+1609:   GColor track = prv_make_color_rgb((Rgb){42, 42, 58});
+1610:   GColor fill = prv_make_color_rgb((Rgb){104, 177, 255});
+1611: 
+1612:   graphics_context_set_fill_color(ctx, black);
+1613:   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+1614: 
+1615:   int16_t panel_w = bounds.size.w - 20;
+1616:   if (panel_w > 200) panel_w = 200;
+1617:   int16_t panel_h = bounds.size.h - 28;
+1618:   if (panel_h > 120) panel_h = 120;
+1619:   int16_t panel_x = (bounds.size.w - panel_w) / 2;
+1620:   int16_t panel_y = (bounds.size.h - panel_h) / 2;
+1621: 
+1622:   graphics_context_set_fill_color(ctx, panel);
+1623:   graphics_fill_rect(ctx, GRect(panel_x, panel_y, panel_w, panel_h), 0, GCornerNone);
+1624: 
+1625:   graphics_context_set_text_color(ctx, white);
+1626:   graphics_draw_text(ctx, "Solar Gradient", s_info_font_large,
+1627:                      GRect(panel_x, panel_y + 18, panel_w, 24),
+1628:                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+1629: 
+1630:   graphics_draw_text(ctx, prv_loading_status_line(), s_info_font_small,
+1631:                      GRect(panel_x + 4, panel_y + 54, panel_w - 8, 18),
+1632:                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+1633: 
+1634:   int16_t bar_w = panel_w - 28;
+1635:   int16_t bar_h = 8;
+1636:   int16_t bar_x = panel_x + 14;
+1637:   int16_t bar_y = panel_y + 76;
+1638: 
+1639:   graphics_context_set_fill_color(ctx, track);
+1640:   graphics_fill_rect(ctx, GRect(bar_x, bar_y, bar_w, bar_h), 0, GCornerNone);
+1641: 
+1642:   int16_t fill_w = (int16_t)((bar_w * prv_clamp_i32(s_state.loading_progress, 0, 100)) / 100);
+1643:   if (fill_w > 0) {
+1644:     graphics_context_set_fill_color(ctx, fill);
+1645:     graphics_fill_rect(ctx, GRect(bar_x, bar_y, fill_w, bar_h), 0, GCornerNone);
+1646:   }
+1647: 
+1648:   char percent_text[8];
+1649:   snprintf(percent_text, sizeof(percent_text), "%ld%%", (long)prv_clamp_i32(s_state.loading_progress, 0, 100));
+1650:   graphics_context_set_text_color(ctx, white);
+1651:   graphics_draw_text(ctx, percent_text, s_info_font_small,
+1652:                      GRect(panel_x, panel_y + 90, panel_w, 18),
+1653:                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+1654: }
+1655: 
+1656: static void prv_canvas_update_proc(Layer *layer, GContext *ctx) {
+1657:   GRect bounds = layer_get_bounds(layer);
+1658:   s_active_profile = prv_render_profile_for_bounds(bounds);
+1659: 
+1660:   if (!s_state.bt_connected && !s_state.has_payload) {
+1661:     s_state.launch_done = true;
+1662:   }
+1663: 
+1664:   if (s_state.launch_done) {
+1665:     prv_draw_face(ctx, bounds);
+1666:   } else {
+1667:     prv_draw_loading_card(ctx, bounds);
+1668:   }
+1669: }
+1670: 
+1671: static void prv_send_refresh_request(void) {
+1672:   DictionaryIterator *iter = NULL;
+1673:   if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+1674:     return;
+1675:   }
+1676: 
+1677:   s_state.refresh_counter = (s_state.refresh_counter + 1) & 0x7fffffff;
+1678:   dict_write_uint8(iter, MESSAGE_KEY_RefreshRequest, 1);
+1679:   dict_write_uint32(iter, MESSAGE_KEY_ReloadFaceToken, s_state.refresh_counter);
+1680:   dict_write_end(iter);
+1681:   app_message_outbox_send();
+1682: }
+1683: 
+1684: static void prv_on_message_received(DictionaryIterator *iter, void *context) {
+1685:   bool loading_changed = false;
+1686:   bool motion_changed = false;
+1687:   (void)context;
+1688: 
+1689:   Tuple *reload_token = dict_find(iter, MESSAGE_KEY_ReloadFaceToken);
+1690:   if (reload_token) {
+1691:     uint32_t token = (uint32_t)prv_tuple_to_i32(reload_token);
+1692:     if (token != s_state.last_reload_face_token) {
+1693:       s_state.last_reload_face_token = token;
+1694:       prv_begin_loading();
+1695:       loading_changed = true;
+1696:     }
+1697:   }
+1698: 
+1699:   Tuple *override_mode = dict_find(iter, MESSAGE_KEY_TextOverrideMode);
+1700:   if (override_mode) {
+1701:     s_state.text_override_mode = prv_clamp_i32(prv_tuple_to_i32(override_mode), 0, 3);
+1702:     loading_changed = true;
+1703:   }
+1704: 
+1705:   Tuple *motion_mode = dict_find(iter, MESSAGE_KEY_MotionMode);
+1706:   if (motion_mode) {
+1707:     s_state.motion_mode = prv_clamp_i32(prv_tuple_to_i32(motion_mode), MOTION_MODE_HYBRID, MOTION_MODE_DYNAMIC);
+1708:     loading_changed = true;
+1709:     motion_changed = true;
+1710:   }
+1711: 
+1712:   Tuple *gradient_spread = dict_find(iter, MESSAGE_KEY_GradientSpread);
+1713:   if (gradient_spread) {
+1714:     s_state.gradient_spread = prv_clamp_i32(prv_tuple_to_i32(gradient_spread), 0, 4);
+1715:     loading_changed = true;
+1716:     motion_changed = true;
+1717:   }
+1718: 
+1719:   Tuple *battery_mode = dict_find(iter, MESSAGE_KEY_BatterySaveMode);
+1720:   if (battery_mode) {
+1721:     s_state.battery_save_mode = prv_tuple_to_i32(battery_mode) != 0 ? 1 : 0;
+1722:     loading_changed = true;
+1723:     motion_changed = true;
+1724:   }
+1725: 
+1726:   Tuple *time_format = dict_find(iter, MESSAGE_KEY_TimeFormat);
+1727:   if (time_format) {
+1728:     s_state.time_format = prv_clamp_i32(prv_tuple_to_i32(time_format), 0, 2);
+1729:     loading_changed = true;
+1730:   }
+1731: 
+1732:   Tuple *time_size_basalt = dict_find(iter, MESSAGE_KEY_TimeSizeBasalt);
+1733:   if (time_size_basalt) {
+1734:     s_state.time_size_basalt = prv_clamp_i32(prv_tuple_to_i32(time_size_basalt), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+1735:     loading_changed = true;
+1736:   }
+1737: 
+1738:   Tuple *time_size_chalk = dict_find(iter, MESSAGE_KEY_TimeSizeChalk);
+1739:   if (time_size_chalk) {
+1740:     s_state.time_size_chalk = prv_clamp_i32(prv_tuple_to_i32(time_size_chalk), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+1741:     loading_changed = true;
+1742:   }
+1743: 
+1744:   Tuple *footer_slot_1 = dict_find(iter, MESSAGE_KEY_FooterSlot1);
+1745:   if (footer_slot_1) {
+1746:     s_state.footer_slot_1 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_1), 0, 7);
+1747:     loading_changed = true;
+1748:   }
+1749: 
+1750:   Tuple *footer_slot_2 = dict_find(iter, MESSAGE_KEY_FooterSlot2);
+1751:   if (footer_slot_2) {
+1752:     s_state.footer_slot_2 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_2), 0, 7);
+1753:     loading_changed = true;
+1754:   }
+1755: 
+1756:   Tuple *footer_slot_3 = dict_find(iter, MESSAGE_KEY_FooterSlot3);
+1757:   if (footer_slot_3) {
+1758:     s_state.footer_slot_3 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_3), 0, 7);
+1759:     loading_changed = true;
+1760:   }
+1761: 
+1762:   Tuple *footer_slot_4 = dict_find(iter, MESSAGE_KEY_FooterSlot4);
+1763:   if (footer_slot_4) {
+1764:     s_state.footer_slot_4 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_4), 0, 7);
+1765:     loading_changed = true;
+1766:   }
+1767: 
+1768:   Tuple *current_solar_phase_id = dict_find(iter, MESSAGE_KEY_CurrentSolarPhaseId);
+1769:   if (current_solar_phase_id) {
+1770:     s_state.current_solar_phase_id = prv_clamp_i32(prv_tuple_to_i32(current_solar_phase_id), 0, 13);
+1771:     loading_changed = true;
+1772:   }
+1773: 
+1774:   Tuple *next_solar_phase_id = dict_find(iter, MESSAGE_KEY_NextSolarPhaseId);
+1775:   if (next_solar_phase_id) {
+1776:     s_state.next_solar_phase_id = prv_clamp_i32(prv_tuple_to_i32(next_solar_phase_id), 0, 13);
+1777:     loading_changed = true;
+1778:   }
+1779: 
+1780:   Tuple *next_solar_phase_epoch = dict_find(iter, MESSAGE_KEY_NextSolarPhaseEpoch);
+1781:   if (next_solar_phase_epoch) {
+1782:     s_state.next_solar_phase_epoch = prv_tuple_to_i32(next_solar_phase_epoch);
+1783:     loading_changed = true;
+1784:   }
+1785: 
+1786:   Tuple *time_size_emery = dict_find(iter, MESSAGE_KEY_TimeSizeEmery);
+1787:   if (time_size_emery) {
+1788:     s_state.time_size_emery = prv_clamp_i32(prv_tuple_to_i32(time_size_emery), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+1789:     loading_changed = true;
+1790:   }
+1791: 
+1792:   Tuple *time_size_gabbro = dict_find(iter, MESSAGE_KEY_TimeSizeGabbro);
+1793:   if (time_size_gabbro) {
+1794:     s_state.time_size_gabbro = prv_clamp_i32(prv_tuple_to_i32(time_size_gabbro), TIME_SIZE_COMPACT, TIME_SIZE_LARGE);
+1795:     loading_changed = true;
+1796:   }
+1797: 
+1798:   Tuple *footer_slot_5 = dict_find(iter, MESSAGE_KEY_FooterSlot5);
+1799:   if (footer_slot_5) {
+1800:     s_state.footer_slot_5 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_5), 0, 7);
+1801:     loading_changed = true;
+1802:   }
+1803: 
+1804:   Tuple *footer_slot_6 = dict_find(iter, MESSAGE_KEY_FooterSlot6);
+1805:   if (footer_slot_6) {
+1806:     s_state.footer_slot_6 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_6), 0, 7);
+1807:     loading_changed = true;
+1808:   }
+1809: 
+1810:   Tuple *weather_enabled = dict_find(iter, MESSAGE_KEY_WeatherEnabled);
+1811:   if (weather_enabled) {
+1812:     s_state.weather_enabled = prv_tuple_to_i32(weather_enabled) != 0 ? 1 : 0;
+1813:     loading_changed = true;
+1814:   }
+1815: 
+1816:   Tuple *weather_unit_fahrenheit = dict_find(iter, MESSAGE_KEY_WeatherUnitFahrenheit);
+1817:   if (weather_unit_fahrenheit) {
+1818:     s_state.weather_unit_fahrenheit = prv_tuple_to_i32(weather_unit_fahrenheit) != 0 ? 1 : 0;
+1819:     loading_changed = true;
+1820:   }
+1821: 
+1822:   Tuple *weather_detail_level = dict_find(iter, MESSAGE_KEY_WeatherDetailLevel);
+1823:   if (weather_detail_level) {
+1824:     s_state.weather_detail_level = prv_clamp_i32(prv_tuple_to_i32(weather_detail_level), 0, 2);
+1825:     loading_changed = true;
+1826:   }
+1827: 
+1828:   Tuple *weather_status = dict_find(iter, MESSAGE_KEY_WeatherStatus);
+1829:   if (weather_status) {
+1830:     s_state.weather_status = prv_clamp_i32(prv_tuple_to_i32(weather_status), 0, WEATHER_STATUS_FAILED);
+1831:     loading_changed = true;
+1832:   }
+1833: 
+1834:   Tuple *weather_temp_x10 = dict_find(iter, MESSAGE_KEY_WeatherTempX10);
+1835:   if (weather_temp_x10) {
+1836:     s_state.weather_temp_x10 = prv_tuple_to_i32(weather_temp_x10);
+1837:     loading_changed = true;
+1838:   }
+1839: 
+1840:   Tuple *weather_cloud_cover = dict_find(iter, MESSAGE_KEY_WeatherCloudCover);
+1841:   if (weather_cloud_cover) {
+1842:     s_state.weather_cloud_cover = prv_clamp_i32(prv_tuple_to_i32(weather_cloud_cover), 0, 100);
+1843:     loading_changed = true;
+1844:   }
+1845: 
+1846:   Tuple *weather_code = dict_find(iter, MESSAGE_KEY_WeatherCode);
+1847:   if (weather_code) {
+1848:     s_state.weather_code = prv_tuple_to_i32(weather_code);
+1849:     loading_changed = true;
+1850:   }
+1851: 
+1852:   Tuple *weather_wind_x10 = dict_find(iter, MESSAGE_KEY_WeatherWindX10);
+1853:   if (weather_wind_x10) {
+1854:     s_state.weather_wind_x10 = prv_tuple_to_i32(weather_wind_x10);
+1855:     loading_changed = true;
+1856:   }
+1857: 
+1858:   Tuple *weather_precip_x100 = dict_find(iter, MESSAGE_KEY_WeatherPrecipX100);
+1859:   if (weather_precip_x100) {
+1860:     s_state.weather_precip_x100 = prv_tuple_to_i32(weather_precip_x100);
+1861:     loading_changed = true;
+1862:   }
+1863: 
+1864:   Tuple *weather_updated_epoch = dict_find(iter, MESSAGE_KEY_WeatherUpdatedEpoch);
+1865:   if (weather_updated_epoch) {
+1866:     s_state.weather_updated_epoch = prv_tuple_to_i32(weather_updated_epoch);
+1867:     loading_changed = true;
+1868:   }
+1869: 
+1870:   Tuple *dev_mode = dict_find(iter, MESSAGE_KEY_DevModeEnabled);
+1871:   if (dev_mode) {
+1872:     s_state.dev_mode_enabled = prv_tuple_to_i32(dev_mode) != 0;
+1873:     loading_changed = true;
+1874:   }
+1875: 
+1876:   Tuple *dev_sweep = dict_find(iter, MESSAGE_KEY_DevSweepEnabled);
+1877:   if (dev_sweep) {
+1878:     s_state.dev_sweep_enabled = prv_tuple_to_i32(dev_sweep) != 0;
+1879:     loading_changed = true;
+1880:   }
+1881: 
+1882:   Tuple *dev_overlay = dict_find(iter, MESSAGE_KEY_DevShowDebugOverlay);
+1883:   if (dev_overlay) {
+1884:     s_state.dev_show_debug_overlay = prv_tuple_to_i32(dev_overlay) != 0;
+1885:     loading_changed = true;
+1886:   }
+1887: 
+1888:   Tuple *status_code = dict_find(iter, MESSAGE_KEY_StatusCode);
+1889:   if (status_code) {
+1890:     int32_t code = prv_tuple_to_i32(status_code);
+1891:     prv_set_loading_status(code);
+1892:     if (code == STATUS_READY) {
+1893:       prv_set_loading_progress_target(100);
+1894:     }
+1895:     loading_changed = true;
+1896:   }
+1897: 
+1898:   Tuple *progress_percent = dict_find(iter, MESSAGE_KEY_ProgressPercent);
+1899:   if (progress_percent) {
+1900:     prv_set_loading_progress_target(prv_tuple_to_i32(progress_percent));
+1901:     loading_changed = true;
+1902:   }
+1903: 
+1904:   Tuple *lat = dict_find(iter, MESSAGE_KEY_LatitudeE6);
+1905:   Tuple *lon = dict_find(iter, MESSAGE_KEY_LongitudeE6);
+1906:   Tuple *az = dict_find(iter, MESSAGE_KEY_AzimuthDegX100);
+1907:   Tuple *alt = dict_find(iter, MESSAGE_KEY_AltitudeDegX100);
+1908:   Tuple *angle = dict_find(iter, MESSAGE_KEY_GradientAngleDegX100);
+1909:   Tuple *computed = dict_find(iter, MESSAGE_KEY_ComputedAtEpoch);
+1910:   Tuple *source = dict_find(iter, MESSAGE_KEY_SourceCode);
+1911:   Tuple *city = dict_find(iter, MESSAGE_KEY_CityName);
+1912: 
+1913:   if (city) {
+1914:     snprintf(s_state.city_name, sizeof(s_state.city_name), "%s", city->value->cstring);
+1915:     loading_changed = true;
+1916:   }
+1917: 
+1918:   if (!lat || !lon || !az || !alt || !angle || !computed) {
+1919:     if (motion_changed) {
+1920:       prv_restart_animation_timer();
+1921:     }
+1922:     if (loading_changed) {
+1923:       layer_mark_dirty(s_canvas_layer);
+1924:     }
+1925:     return;
+1926:   }
+1927: 
+1928:   s_state.latitude_e6 = prv_tuple_to_i32(lat);
+1929:   s_state.longitude_e6 = prv_tuple_to_i32(lon);
+1930:   uint32_t now_ms = prv_now_ms();
+1931:   bool was_ready = s_state.had_payload_once;
+1932: 
+1933:   s_state.azimuth_deg_x100 = prv_tuple_to_i32(az);
+1934:   int32_t previous_altitude_x100 = s_state.altitude_deg_x100;
+1935:   s_state.altitude_deg_x100 = prv_tuple_to_i32(alt);
+1936:   int32_t next_altitude_x100 = s_state.altitude_deg_x100;
+1937:   bool crossed_horizon = (previous_altitude_x100 < 0 && next_altitude_x100 >= 0) ||
+1938:                          (previous_altitude_x100 >= 0 && next_altitude_x100 < 0);
+1939:   bool crossed_blue_hour = (previous_altitude_x100 < -600 && next_altitude_x100 >= -600) ||
+1940:                            (previous_altitude_x100 >= -600 && next_altitude_x100 < -600);
+1941:   if (crossed_horizon || crossed_blue_hour) {
+1942:     s_state.event_moment_until_ms = now_ms + EVENT_MOMENT_MS;
+1943:   }
+1944:   int32_t next_angle_x100 = prv_wrap_degrees_x100(prv_tuple_to_i32(angle));
+1945:   if (!was_ready) {
+1946:     s_state.gradient_angle_deg_x100 = next_angle_x100;
+1947:     s_state.previous_gradient_angle_deg_x100 = next_angle_x100;
+1948:     s_state.target_gradient_angle_deg_x100 = next_angle_x100;
+1949:     s_state.angle_transition_active = false;
+1950:   } else {
+1951:     s_state.previous_gradient_angle_deg_x100 = s_state.gradient_angle_deg_x100;
+1952:     s_state.target_gradient_angle_deg_x100 = next_angle_x100;
+1953:     s_state.angle_transition_started_ms = now_ms;
+1954:     s_state.angle_transition_active = true;
+1955:   }
+1956:   s_state.computed_at_epoch = prv_tuple_to_i32(computed);
+1957: 
+1958:   if (source) {
+1959:     s_state.source_code = prv_tuple_to_i32(source);
+1960:   }
+1961: 
+1962:   s_state.has_payload = true;
+1963:   s_state.had_payload_once = true;
+1964:   s_state.last_payload_received_ms = now_ms;
+1965:   if (was_ready && s_state.launch_done) {
+1966:     s_state.refresh_badge_until_ms = now_ms + REFRESH_BADGE_MS;
+1967:   }
+1968:   prv_set_loading_status(STATUS_READY);
+1969:   s_state.loading_progress_target = 100;
+1970:   s_state.loading_progress = 100;
+1971:   s_state.launch_transition_deadline_ms = now_ms + LOADING_TRANSITION_HOLD_MS;
+1972:   prv_start_loading_timer();
+1973:   if (motion_changed) {
+1974:     prv_restart_animation_timer();
+1975:   }
+1976:   layer_mark_dirty(s_canvas_layer);
+1977: }
+1978: 
+1979: static void prv_on_connection_event(bool connected) {
+1980:   s_state.bt_connected = connected;
+1981:   if (connected && s_state.had_payload_once) {
+1982:     prv_begin_loading();
+1983:     prv_send_refresh_request();
+1984:   }
+1985:   layer_mark_dirty(s_canvas_layer);
+1986: }
+1987: 
+1988: static void prv_on_minute_tick(struct tm *tick_time, TimeUnits changed) {
+1989:   (void)tick_time;
+1990:   (void)changed;
+1991:   layer_mark_dirty(s_canvas_layer);
+1992: }
+1993: 
+1994: static void prv_loading_timer_cb(void *context) {
+1995:   (void)context;
+1996:   s_loading_timer = NULL;
+1997:   bool changed = false;
+1998:   uint32_t now_ms = prv_now_ms();
+1999: 
+2000:   if (!s_state.launch_done) {
+2001:     changed = prv_advance_loading_progress(now_ms);
+2002: 
+2003:     uint32_t elapsed_ms = now_ms - s_state.loading_started_ms;
+2004:     uint8_t next_hint = 0;
+2005:     if (elapsed_ms > LOADING_STALE_HINT_MS && elapsed_ms <= LOADING_STILL_WORKING_MS &&
+2006:         s_state.status_code == STATUS_GRABBING_LOCATION) {
+2007:       next_hint = 1;
+2008:     } else if (elapsed_ms > LOADING_STILL_WORKING_MS && elapsed_ms <= LOADING_TIMEOUT_MS) {
+2009:       next_hint = 2;
+2010:     }
+2011:     if (next_hint != s_state.loading_hint_mode) {
+2012:       s_state.loading_hint_mode = next_hint;
+2013:       changed = true;
+2014:     }
+2015: 
+2016:     if (elapsed_ms > LOADING_TIMEOUT_MS) {
+2017:       s_state.launch_done = true;
+2018:       changed = true;
+2019:     }
+2020: 
+2021:     if (s_state.launch_transition_deadline_ms != 0 && now_ms >= s_state.launch_transition_deadline_ms) {
+2022:       s_state.launch_transition_deadline_ms = 0;
+2023:       s_state.launch_done = true;
+2024:       changed = true;
+2025:     }
+2026:   }
+2027: 
+2028:   if (changed) {
+2029:     layer_mark_dirty(s_canvas_layer);
+2030:   }
+2031: 
+2032:   if (!s_state.launch_done) {
+2033:     s_loading_timer = app_timer_register(LOADING_TIMER_INTERVAL_MS, prv_loading_timer_cb, NULL);
+2034:   }
+2035: }
+2036: 
+2037: static void prv_animation_timer_cb(void *context) {
+2038:   (void)context;
+2039:   s_animation_timer = NULL;
+2040:   
+2041:   if (s_canvas_layer && s_state.launch_done) {
+2042:     layer_mark_dirty(s_canvas_layer);
+2043:   }
+2044: 
+2045:   uint32_t now_ms = prv_now_ms();
+2046:   bool needs_animation = s_state.angle_transition_active || 
+2047:                          (s_state.refresh_badge_until_ms > 0 && now_ms < s_state.refresh_badge_until_ms) || 
+2048:                          (s_state.event_moment_until_ms > 0 && now_ms < s_state.event_moment_until_ms);
+2049: 
+2050:   if (needs_animation || !s_state.launch_done) {
+2051:     prv_start_animation_timer();
+2052:   }
+2053: }
+2054: 
+2055: static void prv_start_loading_timer(void) {
+2056:   if (!s_loading_timer && !s_state.launch_done) {
+2057:     s_loading_timer = app_timer_register(LOADING_TIMER_INTERVAL_MS, prv_loading_timer_cb, NULL);
+2058:   }
+2059: }
+2060: 
+2061: static void prv_start_animation_timer(void) {
+2062:   if (!s_animation_timer) {
+2063:     const RenderProfile *profile = s_active_profile ? s_active_profile : &s_render_profiles[0];
+2064:     uint32_t interval = prv_animation_interval_for_profile(profile);
+2065:     s_animation_timer = app_timer_register(interval, prv_animation_timer_cb, NULL);
+2066:   }
+2067: }
+2068: 
+2069: static void prv_restart_animation_timer(void) {
+2070:   if (s_animation_timer) {
+2071:     app_timer_cancel(s_animation_timer);
+2072:     s_animation_timer = NULL;
+2073:   }
+2074:   prv_start_animation_timer();
+2075: }
+2076: 
+2077: static void prv_window_load(Window *window) {
+2078:   Layer *window_layer = window_get_root_layer(window);
+2079:   GRect bounds = layer_get_bounds(window_layer);
+2080: 
+2081:   s_canvas_layer = layer_create(bounds);
+2082:   layer_set_update_proc(s_canvas_layer, prv_canvas_update_proc);
+2083:   layer_add_child(window_layer, s_canvas_layer);
+2084: }
+2085: 
+2086: static void prv_window_unload(Window *window) {
+2087:   (void)window;
+2088:   if (s_canvas_layer) {
+2089:     layer_destroy(s_canvas_layer);
+2090:     s_canvas_layer = NULL;
+2091:   }
+2092: }
+2093: 
+2094: static void prv_init(void) {
+2095:   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+2096:   s_info_font_large = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+2097:   s_info_font_small = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+2098: 
+2099:   s_state.bt_connected = bluetooth_connection_service_peek();
+2100:   s_state.loading_started_ms = prv_now_ms();
+2101:   s_state.loading_status_started_ms = s_state.loading_started_ms;
+2102: 
+2103:   s_window = window_create();
+2104:   window_set_window_handlers(s_window, (WindowHandlers) {
+2105:     .load = prv_window_load,
+2106:     .unload = prv_window_unload,
+2107:   });
+2108:   window_stack_push(s_window, true);
+2109: 
+2110:   app_message_register_inbox_received(prv_on_message_received);
+2111:   app_message_open(512, 256);
+2112: 
+2113:   tick_timer_service_subscribe(MINUTE_UNIT, prv_on_minute_tick);
+2114:   bluetooth_connection_service_subscribe(prv_on_connection_event);
+2115: 
+2116:   prv_begin_loading();
+2117:   prv_send_refresh_request();
+2118:   prv_start_animation_timer();
+2119: }
+2120: 
+2121: static void prv_deinit(void) {
+2122:   if (s_loading_timer) {
+2123:     app_timer_cancel(s_loading_timer);
+2124:     s_loading_timer = NULL;
+2125:   }
+2126:   if (s_animation_timer) {
+2127:     app_timer_cancel(s_animation_timer);
+2128:     s_animation_timer = NULL;
+2129:   }
+2130: 
+2131:   tick_timer_service_unsubscribe();
+2132:   bluetooth_connection_service_unsubscribe();
+2133:   app_message_deregister_callbacks();
+2134: 
+2135:   window_destroy(s_window);
+2136: }
+2137: 
+2138: int main(void) {
+2139:   prv_init();
+2140:   app_event_loop();
+2141:   prv_deinit();
+2142: }
+2143: 

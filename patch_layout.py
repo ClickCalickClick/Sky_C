@@ -1,140 +1,64 @@
-import sys
+import re
 
 with open('src/c/Sky.c', 'r') as f:
     text = f.read()
 
-old_block = """\
-  int16_t side_pad = prv_clamp_i16(bounds.size.w / 18, 4, 16);
-  int16_t top_bottom_pad = prv_clamp_i16(bounds.size.h / 12, 8, 26);
-  int16_t content_w = bounds.size.w - (2 * side_pad);
-  if (content_w < 20) {
-    content_w = bounds.size.w;
-    side_pad = 0;
+OLD_LAYOUT = """  bool is_24h = clock_is_24h_style();
+  if (s_state.time_format == 1) {
+    is_24h = false;
+  } else if (s_state.time_format == 2) {
+    is_24h = true;
   }
 
-  GFont info_font = bounds.size.h < 200 ? s_info_font_small : s_info_font_large;
-  int16_t info_line_h = prv_line_height_for_font(info_font);
-  int16_t line_gap_main = prv_clamp_i16(bounds.size.h / 36, 2, 8);
-  int16_t line_gap_info = prv_clamp_i16(bounds.size.h / 48, 1, 6);
-
-  GSize time_size = prv_text_size(time_text, time_font, content_w, bounds.size.h);
-  bool show_location_line = (location_text[0] != '\\0');
-  bool show_altitude_line = (altitude_text[0] != '\\0');
-  bool show_weather_line = (weather_text[0] != '\\0');
-  bool show_solar_phase_line = (solar_phase_text[0] != '\\0');
-  bool show_next_phase_countdown_line = (next_phase_text[0] != '\\0');
-
-  int16_t info_line_count = 0;
-  if (show_location_line) {
-    info_line_count += 1;
-  }
-  if (show_altitude_line) {
-    info_line_count += 1;
-  }
-  if (show_weather_line) {
-    info_line_count += 1;
-  }
-  if (show_solar_phase_line) {
-    info_line_count += 1;
-  }
-  if (show_next_phase_countdown_line) {
-    info_line_count += 1;
+  char time_text[8];
+  if (is_24h) {
+    snprintf(time_text, sizeof(time_text), "%02d:%02d", time_info->tm_hour, time_info->tm_min);
+  } else {
+    int hours = time_info->tm_hour % 12;
+    if (hours == 0) {
+      hours = 12;
+    }
+    snprintf(time_text, sizeof(time_text), "%d:%02d", hours, time_info->tm_min);
   }
 
-  int16_t block_h = time_size.h;
-  if (info_line_count > 0) {
-    block_h += line_gap_main;
-    block_h += (int16_t)(info_line_h * info_line_count);
-    block_h += (int16_t)(line_gap_info * (info_line_count - 1));
+  int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
+  GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
+
+  char location_text[48];
+  location_text[0] = '\\0';
+  prv_resolve_city_name(location_text, sizeof(location_text));
+
+  char altitude_text[32];
+  altitude_text[0] = '\\0';
+  char alt_value[24];
+  prv_format_altitude_x100(s_state.altitude_deg_x100, alt_value, sizeof(alt_value));
+  snprintf(altitude_text, sizeof(altitude_text), "alt %s deg", alt_value);
+
+  char weather_text[56];
+  prv_format_weather_text(weather_text, sizeof(weather_text));
+
+  char solar_phase_text[32];
+  solar_phase_text[0] = '\\0';
+  if (s_state.current_solar_phase_id >= 0) {
+    snprintf(solar_phase_text, sizeof(solar_phase_text), "%s", s_band_names[s_state.current_solar_phase_id]);
   }
 
-  int16_t available_h = bounds.size.h - (2 * top_bottom_pad);
-  if (block_h > available_h) {
-    line_gap_main = 1;
-    line_gap_info = 1;
-    block_h = time_size.h;
-    if (info_line_count > 0) {
-      block_h += line_gap_main;
-      block_h += (int16_t)(info_line_h * info_line_count);
-      block_h += (int16_t)(line_gap_info * (info_line_count - 1));
+  char next_phase_text[48];
+  next_phase_text[0] = '\\0';
+  if (s_state.next_solar_phase_epoch > 0) {
+    int32_t diff = s_state.next_solar_phase_epoch - time(NULL);
+    if (diff > 0) {
+      int32_t diff_mins = diff / 60;
+      int32_t h = diff_mins / 60;
+      int32_t m = diff_mins % 60;
+      if (h > 0) {
+        snprintf(next_phase_text, sizeof(next_phase_text), "%dh %dm to %s", (int)h, (int)m, s_band_names[s_state.next_solar_phase_id]);
+      } else {
+        snprintf(next_phase_text, sizeof(next_phase_text), "%dm to %s", (int)m, s_band_names[s_state.next_solar_phase_id]);
+      }
     }
   }
 
-  int16_t start_y = top_bottom_pad;
-  if (available_h > block_h) {
-    start_y += (available_h - block_h) / 2;
-  }
-
-  int16_t y_cursor = start_y;
-  int16_t time_center_y = y_cursor + (time_size.h / 2);
-  TextStyle time_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, time_center_y);
-  prv_draw_styled_text(ctx, time_text, time_font, time_style,
-                       side_pad, y_cursor, content_w, time_size.h + 2, GTextAlignmentCenter);
-  y_cursor += time_size.h;
-
-  if (info_line_count > 0) {
-    y_cursor += line_gap_main;
-  }
-
-  if (show_location_line) {
-    int16_t location_center_y = y_cursor + (info_line_h / 2);
-    TextStyle location_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, location_center_y);
-    prv_draw_styled_text(ctx, location_text, info_font, location_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if (show_location_line && (show_altitude_line || show_weather_line)) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_altitude_line) {
-    int16_t altitude_center_y = y_cursor + (info_line_h / 2);
-    TextStyle altitude_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, altitude_center_y);
-    prv_draw_styled_text(ctx, altitude_text, info_font, altitude_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if ((show_location_line || show_altitude_line) && show_weather_line) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_weather_line) {
-    int16_t weather_center_y = y_cursor + (info_line_h / 2);
-    TextStyle weather_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, weather_center_y);
-    prv_draw_styled_text(ctx, weather_text, info_font, weather_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if (show_weather_line && (show_solar_phase_line || show_next_phase_countdown_line)) {
-    y_cursor += line_gap_info;
-  } else if (!show_weather_line && (show_location_line || show_altitude_line) && (show_solar_phase_line || show_next_phase_countdown_line)) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_solar_phase_line) {
-    int16_t solar_center_y = y_cursor + (info_line_h / 2);
-    TextStyle solar_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, solar_center_y);
-    prv_draw_styled_text(ctx, solar_phase_text, info_font, solar_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-  }
-
-  if (show_solar_phase_line && show_next_phase_countdown_line) {
-    y_cursor += line_gap_info;
-  }
-
-  if (show_next_phase_countdown_line) {
-    int16_t next_center_y = y_cursor + (info_line_h / 2);
-    TextStyle next_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, next_center_y);
-    prv_draw_styled_text(ctx, next_phase_text, info_font, next_style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-  }
-"""
-
-new_block = """\
   char date_text[32];
   date_text[0] = '\\0';
   strftime(date_text, sizeof(date_text), "%a, %b %e", time_info);
@@ -145,12 +69,12 @@ new_block = """\
 
   const char* available_texts[] = {
     "", // 0 = None
-    location_text, // 1
-    altitude_text, // 2
+    date_text, // 1
+    location_text, // 2
     weather_text, // 3
-    solar_phase_text, // 4
-    next_phase_text, // 5
-    date_text, // 6
+    altitude_text, // 4
+    solar_phase_text, // 5
+    next_phase_text, // 6
     battery_text // 7
   };
 
@@ -216,33 +140,17 @@ new_block = """\
   }
   start_y -= (bounds.size.h / 24); // optical adjustment for font padding
 
-  int16_t y_cursor = start_y;
-  int16_t time_center_y = y_cursor + (time_size.h / 2);
-  TextStyle time_style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, time_center_y);
-  prv_draw_styled_text(ctx, time_text, time_font, time_style,
-                       side_pad, y_cursor, content_w, time_size.h + 2, GTextAlignmentCenter);
-  y_cursor += time_size.h;
+  int16_t y_cursor = start_y;"""
 
-  if (info_line_count > 0) {
-    y_cursor += line_gap_main;
-  }
+count = text.count(OLD_LAYOUT)
+print(f"Found {count} occurrences of layout code")
 
-  for (int i = 0; i < info_line_count; i++) {
-    int16_t center_y = y_cursor + (info_line_h / 2);
-    TextStyle style = prv_pick_text_style_for_row(palette, bounds, now_ms, profile, center_y);
-    prv_draw_styled_text(ctx, active_lines[i], info_font, style,
-                         side_pad, y_cursor, content_w, info_line_h + 2, GTextAlignmentCenter);
-    y_cursor += info_line_h;
-    if (i < info_line_count - 1) {
-      y_cursor += line_gap_info;
-    }
-  }
-"""
-
-if old_block in text:
-    new_text = text.replace(old_block, new_block)
-    with open('src/c/Sky.c', 'w') as f:
-        f.write(new_text)
-    print("PATCH SUCCESSFUL")
-else:
-    print("OLD BLOCK NOT FOUND")
+f.write('text = text.replace("static void prv_draw_face(GContext *ctx, GRect bounds) {", "bool s_text_layout_dirty = true;\\n\\nstatic void prv_draw_face(GContext *ctx, GRect bounds) {")\n')
+f.write('text = text.replace("static void prv_on_minute_tick(struct tm *tick_time, TimeUnits changed) {\\n  (void)tick_time;\\n  (void)changed;\\n", "static void prv_on_minute_tick(struct tm *tick_time, TimeUnits changed) {\\n  (void)tick_time;\\n  (void)changed;\\n  s_text_layout_dirty = true;\\n")\n')
+f.write('text = text.replace("  if (motion_changed) {\\n    prv_restart_animation_timer();\\n  }", "  s_text_layout_dirty = true;\\n  if (motion_changed) {\\n    prv_restart_animation_timer();\\n  }")\n')
+f.write('text = text.replace("static bool s_text_layout_dirty = true;\\n", "")\n')
+    
+f.write('''
+with open('src/c/Sky.c', 'w') as outf:
+    outf.write(text)
+''')

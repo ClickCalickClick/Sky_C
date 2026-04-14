@@ -1281,61 +1281,82 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
   texture_strength *= 1.0f + (0.18f * event_moment);
 
   for (int16_t y = 0; y < height; y += step) {
+    int16_t block_y = y / step;
+    int32_t coarse_y = y / (step * 6);
     float y_center_t = prv_clampf(((float)y + ((float)step * 0.5f)) / (float)height, 0.0f, 1.0f);
     float center_band = 1.0f - prv_clampf(prv_absf(y_center_t - 0.5f) / 0.34f, 0.0f, 1.0f);
     float horizon_weight = 1.0f - prv_clampf(prv_absf(y_center_t - horizon_center_t) / horizon_half_width, 0.0f, 1.0f);
     horizon_weight *= horizon_weight;
+    
+    float sample_y = (float)y + ((float)step * 0.5f);
+    float dy = sample_y - bloom_y;
+    float dy_sq = dy * dy;
+    
     float y_projection = ((float)y - cy) * vy;
+
+    float center_bias = 0.06f + (0.12f * phase_energy) + 
+                        (0.08f * daylight_strength * phase_energy) + 
+                        (0.06f * center_band * phase_energy) + 
+                        (0.05f * event_moment);
+
+    float center_boost = 1.0f;
+    if (center_band > 0.0f && phase_energy > 0.0f) {
+      center_boost = 1.0f + (0.16f * center_band * phase_energy * (0.6f + (0.4f * daylight_strength)));
+    }
+
+    float pull = 0.0f;
+    if (horizon_weight > 0.0f) {
+      pull = prv_clampf(horizon_strength * horizon_weight, 0.0f, 0.22f);
+    }
+    
+    float texture_mult = texture_strength * (0.85f + (0.15f * center_band));
+    float base_projection = (y_projection + ((float)(-cx) * vx)) * projection_scale;
+
+    int32_t last_coarse_x = -1;
+    float cloud_noise = 0.0f;
+    float daylight_widen = (1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult));
+    
     for (int16_t x = 0; x < width; x += step) {
       int16_t block_x = x / step;
-      int16_t block_y = y / step;
-      float projection = y_projection + (((float)x - cx) * vx);
-      float raw_factor = prv_clampf((projection * projection_scale) + 0.5f, 0.0f, 1.0f);
+      
+      float projection_scaled = base_projection + (((float)x * vx) * projection_scale);
+      float raw_factor = prv_clampf(projection_scaled + 0.5f, 0.0f, 1.0f);
 
-      // Keep a visible tonal shift through the center third where the time sits.
       float smooth_factor = raw_factor * raw_factor * (3.0f - (2.0f * raw_factor));
-      float center_bias = 0.06f +
-                          (0.12f * phase_energy) +
-                          (0.08f * daylight_strength * phase_energy) +
-                          (0.06f * center_band * phase_energy);
-      center_bias += 0.05f * event_moment;
       float factor = (raw_factor * (1.0f - center_bias)) + (smooth_factor * center_bias);
 
-      if (center_band > 0.0f && phase_energy > 0.0f) {
-        float center_boost = 1.0f + (0.16f * center_band * phase_energy * (0.6f + (0.4f * daylight_strength)));
+      if (center_boost > 1.0f) {
         factor = ((factor - 0.5f) * center_boost) + 0.5f;
       }
       factor = prv_clampf(factor, 0.0f, 1.0f);
 
       if (daylight_strength > 0.0f) {
-        float widened = ((factor - 0.5f) * (1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult))) + 0.5f;
-        factor = prv_clampf(widened, 0.0f, 1.0f);
+        factor = prv_clampf(((factor - 0.5f) * daylight_widen) + 0.5f, 0.0f, 1.0f);
       }
 
-      if (horizon_weight > 0.0f) {
-        float pull = prv_clampf(horizon_strength * horizon_weight, 0.0f, 0.22f);
+      if (pull > 0.0f) {
         factor = (factor * (1.0f - pull)) + (horizon_target_t * pull);
       }
 
       int32_t coarse_x = x / (step * 6);
-      int32_t coarse_y = y / (step * 6);
-      float coarse_noise = prv_noise_2d(coarse_x, coarse_y, daily_seed);
-      float detail_noise = prv_noise_2d((coarse_x * 2) + 7, (coarse_y * 2) - 3, daily_seed ^ 0x9E37u);
-      float cloud_noise = (coarse_noise * 0.70f) + (detail_noise * 0.30f);
-      float texture = cloud_noise * texture_strength * (0.85f + (0.15f * center_band));
-      factor = prv_clampf(factor + texture, 0.0f, 1.0f);
-
+      if (coarse_x != last_coarse_x) {
+        last_coarse_x = coarse_x;
+        float coarse_noise = prv_noise_2d(coarse_x, coarse_y, daily_seed);
+        float detail_noise = prv_noise_2d((coarse_x * 2) + 7, (coarse_y * 2) - 3, daily_seed ^ 0x9E37u);
+        cloud_noise = (coarse_noise * 0.70f) + (detail_noise * 0.30f);
+      }
+      
+      factor = prv_clampf(factor + (cloud_noise * texture_mult), 0.0f, 1.0f);
       factor = prv_clampf(factor + prv_dither_offset(block_x, block_y, dither_strength), 0.0f, 1.0f);
 
       if (daylight_strength > 0.0f) {
         float sample_x = (float)x + ((float)step * 0.5f);
-        float sample_y = (float)y + ((float)step * 0.5f);
         float dx = sample_x - bloom_x;
-        float dy = sample_y - bloom_y;
-        float dist_sq = (dx * dx) + (dy * dy);
+        float dist_sq = (dx * dx) + dy_sq;
+
         if (dist_sq < bloom_radius_sq) {
-          float bloom = 1.0f - (dist_sq / bloom_radius_sq);
-          factor = prv_clampf(factor + (bloom * bloom_gain), 0.0f, 1.0f);
+          float sun_intensity = 1.0f - (dist_sq / bloom_radius_sq);
+          factor = prv_clampf(factor + (sun_intensity * sun_intensity * bloom_gain), 0.0f, 1.0f);
         }
       }
 
@@ -1403,7 +1424,11 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   const RenderProfile *profile = s_active_profile ? s_active_profile : &s_render_profiles[0];
   float altitude_deg = (float)s_state.altitude_deg_x100 / 100.0f;
   Palette palette = prv_palette_for_altitude(altitude_deg, profile);
+
+  uint16_t start_time = time_ms(NULL, NULL);
   prv_draw_solar_gradient(ctx, bounds, palette, now_ms, profile);
+  uint16_t end_time = time_ms(NULL, NULL);
+  APP_LOG(APP_LOG_LEVEL_INFO, "[CPU] Draw Gradient: %d ms", end_time - start_time);
 
   time_t now = time(NULL);
   struct tm *time_info = localtime(&now);
@@ -1722,6 +1747,18 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
     loading_changed = true;
   }
 
+  Tuple *footer_slot_1 = dict_find(iter, MESSAGE_KEY_FooterSlot1);
+  if (footer_slot_1) {
+    s_state.footer_slot_1 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_1), 0, 7);
+    loading_changed = true;
+  }
+
+  Tuple *footer_slot_2 = dict_find(iter, MESSAGE_KEY_FooterSlot2);
+  if (footer_slot_2) {
+    s_state.footer_slot_2 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_2), 0, 7);
+    loading_changed = true;
+  }
+
   Tuple *footer_slot_3 = dict_find(iter, MESSAGE_KEY_FooterSlot3);
   if (footer_slot_3) {
     s_state.footer_slot_3 = prv_clamp_i32(prv_tuple_to_i32(footer_slot_3), 0, 7);
@@ -1879,6 +1916,11 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   Tuple *source = dict_find(iter, MESSAGE_KEY_SourceCode);
   Tuple *city = dict_find(iter, MESSAGE_KEY_CityName);
 
+  if (city) {
+    snprintf(s_state.city_name, sizeof(s_state.city_name), "%s", city->value->cstring);
+    loading_changed = true;
+  }
+
   if (!lat || !lon || !az || !alt || !angle || !computed) {
     if (motion_changed) {
       prv_restart_animation_timer();
@@ -1921,9 +1963,6 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
 
   if (source) {
     s_state.source_code = prv_tuple_to_i32(source);
-  }
-  if (city) {
-    snprintf(s_state.city_name, sizeof(s_state.city_name), "%s", city->value->cstring);
   }
 
   s_state.has_payload = true;
@@ -2004,10 +2043,19 @@ static void prv_loading_timer_cb(void *context) {
 static void prv_animation_timer_cb(void *context) {
   (void)context;
   s_animation_timer = NULL;
+  
   if (s_canvas_layer && s_state.launch_done) {
     layer_mark_dirty(s_canvas_layer);
   }
-  prv_start_animation_timer();
+
+  uint32_t now_ms = prv_now_ms();
+  bool needs_animation = s_state.angle_transition_active || 
+                         (s_state.refresh_badge_until_ms > 0 && now_ms < s_state.refresh_badge_until_ms) || 
+                         (s_state.event_moment_until_ms > 0 && now_ms < s_state.event_moment_until_ms);
+
+  if (needs_animation || !s_state.launch_done) {
+    prv_start_animation_timer();
+  }
 }
 
 static void prv_start_loading_timer(void) {
@@ -2066,7 +2114,9 @@ static void prv_init(void) {
   window_stack_push(s_window, true);
 
   app_message_register_inbox_received(prv_on_message_received);
-  app_message_open(768, 256);
+  app_message_open(512, 256);
+  
+  APP_LOG(APP_LOG_LEVEL_INFO, "[RAM] Heap Free: %d bytes (Used: %d)", (int)heap_bytes_free(), (int)heap_bytes_used());
 
   tick_timer_service_subscribe(MINUTE_UNIT, prv_on_minute_tick);
   bluetooth_connection_service_subscribe(prv_on_connection_event);

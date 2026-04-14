@@ -1060,7 +1060,7 @@
 	            payload.CityName = cityName;
 	            console.log("[solar] refined city source=" + location.source + " city=" + cityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
 	            cacheSolarPayload(payload);
-	            sendAppMessage(payload, "solar-city-update");
+	            sendAppMessage({ 'CityName': cityName }, "solar-city-update");
 	        });
 	    });
 	}
