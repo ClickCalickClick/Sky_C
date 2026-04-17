@@ -497,8 +497,20 @@ function resolveLocation(done) {
         return;
     }
 
+    var locationResolved = false;
+    var locationFallbackTimer = setTimeout(function() {
+        if (locationResolved) return;
+        locationResolved = true;
+        console.log("[solar] ios location timeout workaround triggered, using fallback");
+        scheduleRetry();
+        done({ lat: CHICAGO.lat, lon: CHICAGO.lon, source: SOURCE.chicago });
+    }, 15000); // 15s to give the native 12s timeout a chance to fire first
+
     navigator.geolocation.getCurrentPosition(
         function(position) {
+            if (locationResolved) return;
+            locationResolved = true;
+            clearTimeout(locationFallbackTimer);
             console.log("[solar] using phone location");
             done({
                 lat: position.coords.latitude,
@@ -507,6 +519,9 @@ function resolveLocation(done) {
             });
         },
         function(error) {
+            if (locationResolved) return;
+            locationResolved = true;
+            clearTimeout(locationFallbackTimer);
             console.log("[solar] location failed, using Chicago fallback: " + (error && error.message ? error.message : error));
             scheduleRetry();
             done({ lat: CHICAGO.lat, lon: CHICAGO.lon, source: SOURCE.chicago });
@@ -878,10 +893,7 @@ function reverseGeocodeCity(lat, lon, done, onAttempt) {
 }
 
 function resolveCityName(location, done) {
-    sendStatus(STATUS.resolvingCity, 58);
-
     if (location.source === SOURCE.chicago) {
-        sendStatus(STATUS.resolvingCity, 74);
         done("Chicago");
         return;
     }
@@ -889,18 +901,15 @@ function resolveCityName(location, done) {
     reverseGeocodeCity(location.lat, location.lon, function(city) {
         if (city && city.length) {
             console.log("[solar] city resolved: " + city);
-            sendStatus(STATUS.resolvingCity, 76);
             done(city);
             return;
         }
 
         var fallbackCity = nearestKnownCityName(location.lat, location.lon);
         console.log("[solar] city fallback nearest=" + fallbackCity + " source=" + location.source);
-        sendStatus(STATUS.resolvingCity, 76);
         done(fallbackCity);
     }, function(_provider, attemptIndex, attemptCount) {
-        var geocodeProgress = 60 + Math.round(((attemptIndex + 1) / Math.max(attemptCount, 1)) * 14);
-        sendStatus(STATUS.resolvingCity, geocodeProgress);
+        // No status updates to avoid progress bar jumping backward
     });
 }
 
