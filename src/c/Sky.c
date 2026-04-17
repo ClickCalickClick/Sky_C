@@ -1315,12 +1315,15 @@ static void prv_draw_solar_gradient(GContext *ctx, GRect bounds, Palette palette
     int32_t last_coarse_x = -1;
     float cloud_noise = 0.0f;
     float daylight_widen = (1.0f + (0.35f * daylight_strength * profile->gradient_widen_mult));
-    
+
+    // Precalculate operations that don't depend on x purely
+    float raw_factor_base = base_projection + 0.5f;
+
     for (int16_t x = 0; x < width; x += step) {
       int16_t block_x = x / step;
       
-      float projection_scaled = base_projection + (((float)x * vx) * projection_scale);
-      float raw_factor = prv_clampf(projection_scaled + 0.5f, 0.0f, 1.0f);
+      float projection_scaled = raw_factor_base + (((float)x * vx) * projection_scale);
+      float raw_factor = prv_clampf(projection_scaled, 0.0f, 1.0f);
 
       float smooth_factor = raw_factor * raw_factor * (3.0f - (2.0f * raw_factor));
       float factor = (raw_factor * (1.0f - center_bias)) + (smooth_factor * center_bias);
@@ -1454,26 +1457,26 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   int32_t time_size_mode = prv_time_size_mode_for_profile(profile);
   GFont time_font = prv_time_font_for_mode(profile, time_size_mode);
 
-  char location_text[48];
+  static char location_text[48];
   location_text[0] = '\0';
   prv_resolve_city_name(location_text, sizeof(location_text));
 
-  char altitude_text[32];
+  static char altitude_text[32];
   altitude_text[0] = '\0';
   char alt_value[24];
   prv_format_altitude_x100(s_state.altitude_deg_x100, alt_value, sizeof(alt_value));
   snprintf(altitude_text, sizeof(altitude_text), "alt %s deg", alt_value);
 
-  char weather_text[56];
+  static char weather_text[56];
   prv_format_weather_text(weather_text, sizeof(weather_text));
 
-  char solar_phase_text[32];
+  static char solar_phase_text[32];
   solar_phase_text[0] = '\0';
   if (s_state.current_solar_phase_id >= 0) {
     snprintf(solar_phase_text, sizeof(solar_phase_text), "%s", s_band_names[s_state.current_solar_phase_id]);
   }
 
-  char next_phase_text[48];
+  static char next_phase_text[48];
   next_phase_text[0] = '\0';
   if (s_state.next_solar_phase_epoch > 0) {
     int32_t diff = s_state.next_solar_phase_epoch - time(NULL);
@@ -1489,11 +1492,11 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
     }
   }
 
-  char date_text[32];
+  static char date_text[32];
   date_text[0] = '\0';
   strftime(date_text, sizeof(date_text), "%a, %b %e", time_info);
 
-  char battery_text[16];
+  static char battery_text[16];
   battery_text[0] = '\0';
   snprintf(battery_text, sizeof(battery_text), "Bat: %d%%", battery_state_service_peek().charge_percent);
 
@@ -1925,7 +1928,7 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
     if (motion_changed) {
       prv_restart_animation_timer();
     }
-    if (loading_changed) {
+    if (loading_changed && s_canvas_layer) {
       layer_mark_dirty(s_canvas_layer);
     }
     return;
@@ -1979,7 +1982,9 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   if (motion_changed) {
     prv_restart_animation_timer();
   }
-  layer_mark_dirty(s_canvas_layer);
+  if (s_canvas_layer) {
+    layer_mark_dirty(s_canvas_layer);
+  }
 }
 
 static void prv_on_connection_event(bool connected) {
@@ -1988,13 +1993,17 @@ static void prv_on_connection_event(bool connected) {
     prv_begin_loading();
     prv_send_refresh_request();
   }
-  layer_mark_dirty(s_canvas_layer);
+  if (s_canvas_layer) {
+    layer_mark_dirty(s_canvas_layer);
+  }
 }
 
 static void prv_on_minute_tick(struct tm *tick_time, TimeUnits changed) {
   (void)tick_time;
   (void)changed;
-  layer_mark_dirty(s_canvas_layer);
+  if (s_canvas_layer) {
+    layer_mark_dirty(s_canvas_layer);
+  }
 }
 
 static void prv_loading_timer_cb(void *context) {
@@ -2031,11 +2040,11 @@ static void prv_loading_timer_cb(void *context) {
     }
   }
 
-  if (changed) {
+  if (changed && s_canvas_layer) {
     layer_mark_dirty(s_canvas_layer);
   }
 
-  if (!s_state.launch_done) {
+  if (!s_state.launch_done && s_canvas_layer) {
     s_loading_timer = app_timer_register(LOADING_TIMER_INTERVAL_MS, prv_loading_timer_cb, NULL);
   }
 }
@@ -2059,13 +2068,13 @@ static void prv_animation_timer_cb(void *context) {
 }
 
 static void prv_start_loading_timer(void) {
-  if (!s_loading_timer && !s_state.launch_done) {
+  if (!s_loading_timer && !s_state.launch_done && s_canvas_layer) {
     s_loading_timer = app_timer_register(LOADING_TIMER_INTERVAL_MS, prv_loading_timer_cb, NULL);
   }
 }
 
 static void prv_start_animation_timer(void) {
-  if (!s_animation_timer) {
+  if (!s_animation_timer && s_canvas_layer) {
     const RenderProfile *profile = s_active_profile ? s_active_profile : &s_render_profiles[0];
     uint32_t interval = prv_animation_interval_for_profile(profile);
     s_animation_timer = app_timer_register(interval, prv_animation_timer_cb, NULL);
@@ -2085,12 +2094,32 @@ static void prv_window_load(Window *window) {
   GRect bounds = layer_get_bounds(window_layer);
 
   s_canvas_layer = layer_create(bounds);
-  layer_set_update_proc(s_canvas_layer, prv_canvas_update_proc);
-  layer_add_child(window_layer, s_canvas_layer);
+  if (s_canvas_layer) {
+    layer_set_update_proc(s_canvas_layer, prv_canvas_update_proc);
+    layer_add_child(window_layer, s_canvas_layer);
+  } else {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Failed to create s_canvas_layer");
+  }
 }
 
 static void prv_window_unload(Window *window) {
   (void)window;
+
+  // Cancel timers BEFORE destroying the canvas layer to prevent
+  // callbacks from firing into freed memory.
+  if (s_loading_timer) {
+    app_timer_cancel(s_loading_timer);
+    s_loading_timer = NULL;
+  }
+  if (s_animation_timer) {
+    app_timer_cancel(s_animation_timer);
+    s_animation_timer = NULL;
+  }
+
+  tick_timer_service_unsubscribe();
+  bluetooth_connection_service_unsubscribe();
+  app_message_deregister_callbacks();
+
   if (s_canvas_layer) {
     layer_destroy(s_canvas_layer);
     s_canvas_layer = NULL;
@@ -2114,7 +2143,7 @@ static void prv_init(void) {
   window_stack_push(s_window, true);
 
   app_message_register_inbox_received(prv_on_message_received);
-  app_message_open(512, 256);
+  app_message_open(1024, 256);
   
   APP_LOG(APP_LOG_LEVEL_INFO, "[RAM] Heap Free: %d bytes (Used: %d)", (int)heap_bytes_free(), (int)heap_bytes_used());
 
@@ -2127,6 +2156,8 @@ static void prv_init(void) {
 }
 
 static void prv_deinit(void) {
+  // Timers and services are already cleaned up in prv_window_unload,
+  // but guard here too in case deinit runs without window unload.
   if (s_loading_timer) {
     app_timer_cancel(s_loading_timer);
     s_loading_timer = NULL;
