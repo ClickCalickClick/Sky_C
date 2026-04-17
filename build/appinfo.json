@@ -1,5 +1,5 @@
 {
-    "displayName": "Sky",
+    "displayName": "Aura",
     "uuid": "089d6f1e-361f-4865-ba3b-32578a393e6f",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -69,13 +69,20 @@
         "FooterSlot6": 10053
     },
     "resources": {
-        "media": []
+        "media": [
+            {
+                "type": "bitmap",
+                "name": "IMAGE_MENU_ICON",
+                "file": "images/menu_icon.png",
+                "menuIcon": true
+            }
+        ]
     },
-    "name": "Sky",
-    "shortName": "Sky",
-    "longName": "Sky",
-    "versionLabel": "1.0",
-    "companyName": "MakeAwesomeHappen",
+    "name": "Aura",
+    "shortName": "Aura",
+    "longName": "Aura",
+    "versionLabel": "2.3",
+    "companyName": "ClickCalickClick",
     "appKeys": {
         "StatusCode": 10000,
         "ProgressPercent": 10001,

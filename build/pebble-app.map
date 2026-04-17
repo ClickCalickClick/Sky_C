@@ -97,6 +97,8 @@ Discarded input sections
  .bss           0x00000000        0x0 basalt/appinfo.auto.c.33.o
  .text          0x00000000        0x0 basalt/src/resource_ids.auto.c.33.o
  .bss           0x00000000        0x0 basalt/src/resource_ids.auto.c.33.o
+ .data.RESOURCE_ID_IMAGE_MENU_ICON
+                0x00000000        0x4 basalt/src/resource_ids.auto.c.33.o
  .text          0x00000000        0x0 src/message_keys.auto.c.33.o
  .bss           0x00000000        0x0 src/message_keys.auto.c.33.o
  .data.MESSAGE_KEY_DevSweepCycleSeconds
@@ -2160,17 +2162,17 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
  .comment       0x00000038       0x39 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-errno.o)
  .comment       0x00000038       0x39 /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148/toolchain/arm-none-eabi/bin/../lib/gcc/arm-none-eabi/14.2.1/thumb/v7-m/nofp/crtend.o
 
-.debug_info     0x00000000     0xa3c4
+.debug_info     0x00000000     0xa3ee
  .debug_info    0x00000000     0x9c44 src/c/Sky.c.33.o
  .debug_info    0x00009c44      0x33e basalt/appinfo.auto.c.33.o
- .debug_info    0x00009f82       0x65 basalt/src/resource_ids.auto.c.33.o
- .debug_info    0x00009fe7      0x3dd src/message_keys.auto.c.33.o
+ .debug_info    0x00009f82       0x8f basalt/src/resource_ids.auto.c.33.o
+ .debug_info    0x0000a011      0x3dd src/message_keys.auto.c.33.o
 
-.debug_abbrev   0x00000000      0x6c9
+.debug_abbrev   0x00000000      0x6eb
  .debug_abbrev  0x00000000      0x5a0 src/c/Sky.c.33.o
  .debug_abbrev  0x000005a0       0xb9 basalt/appinfo.auto.c.33.o
- .debug_abbrev  0x00000659       0x26 basalt/src/resource_ids.auto.c.33.o
- .debug_abbrev  0x0000067f       0x4a src/message_keys.auto.c.33.o
+ .debug_abbrev  0x00000659       0x48 basalt/src/resource_ids.auto.c.33.o
+ .debug_abbrev  0x000006a1       0x4a src/message_keys.auto.c.33.o
 
 .debug_loclists
                 0x00000000     0x6986
@@ -2192,18 +2194,18 @@ LOAD /Users/jaredwuerzburger/Library/Application Support/Pebble SDK/SDKs/4.9.148
  .debug_rnglists
                 0x00000000      0xb8d src/c/Sky.c.33.o
 
-.debug_line     0x00000000     0x4e55
+.debug_line     0x00000000     0x4f76
  .debug_line    0x00000000     0x4aee src/c/Sky.c.33.o
  .debug_line    0x00004aee      0x1cf basalt/appinfo.auto.c.33.o
- .debug_line    0x00004cbd       0x3f basalt/src/resource_ids.auto.c.33.o
- .debug_line    0x00004cfc      0x159 src/message_keys.auto.c.33.o
+ .debug_line    0x00004cbd      0x160 basalt/src/resource_ids.auto.c.33.o
+ .debug_line    0x00004e1d      0x159 src/message_keys.auto.c.33.o
 
-.debug_str      0x00000000     0x2aeb
- .debug_str     0x00000000     0x2aeb src/c/Sky.c.33.o
+.debug_str      0x00000000     0x2b07
+ .debug_str     0x00000000     0x2b07 src/c/Sky.c.33.o
                                0x2923 (size before relaxing)
- .debug_str     0x00002aeb      0x4dc basalt/appinfo.auto.c.33.o
- .debug_str     0x00002aeb      0x170 basalt/src/resource_ids.auto.c.33.o
- .debug_str     0x00002aeb      0x73b src/message_keys.auto.c.33.o
+ .debug_str     0x00002b07      0x4dc basalt/appinfo.auto.c.33.o
+ .debug_str     0x00002b07      0x1a0 basalt/src/resource_ids.auto.c.33.o
+ .debug_str     0x00002b07      0x73b src/message_keys.auto.c.33.o
 
 .debug_frame    0x00000000      0x4b0
  .debug_frame   0x00000000      0x4b0 src/c/Sky.c.33.o

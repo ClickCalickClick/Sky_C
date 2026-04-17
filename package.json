@@ -1,7 +1,7 @@
 {
-  "name": "Sky",
-  "author": "MakeAwesomeHappen",
-  "version": "1.0.0",
+  "name": "Aura",
+  "author": "ClickCalickClick",
+  "version": "2.3.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {
@@ -9,7 +9,7 @@
     "suncalc": "^1.9.0"
   },
   "pebble": {
-    "displayName": "Sky",
+    "displayName": "Aura",
     "uuid": "089d6f1e-361f-4865-ba3b-32578a393e6f",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -79,7 +79,14 @@
       "FooterSlot6"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png",
+          "menuIcon": true
+        }
+      ]
     }
   }
 }
