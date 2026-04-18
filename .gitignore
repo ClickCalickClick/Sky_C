@@ -1,0 +1,5 @@
+# Build artifacts
+build/
+
+# Waf lock files (contain full local environment paths)
+.lock-waf_*

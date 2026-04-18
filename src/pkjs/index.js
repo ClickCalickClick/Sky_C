@@ -67,6 +67,7 @@ var outboxQueue = [];
 var outboxBusy = false;
 var outboxRetryTimer = null;
 var phaseRefreshTimer = null;
+var solarUpdateInProgress = false;
 
 function schedulePhaseRefreshAtEpoch(nextPhaseEpoch) {
   if (phaseRefreshTimer) {
@@ -325,31 +326,38 @@ function flushOutboxQueue() {
     var item = outboxQueue[0];
     outboxBusy = true;
 
-    Pebble.sendAppMessage(
-        item.payload,
-        function() {
-            outboxBusy = false;
-            outboxQueue.shift();
-            if (item.label) {
-                console.log("[solar] sent " + item.label);
-            }
-            flushOutboxQueue();
-        },
-        function(error) {
-            outboxBusy = false;
+    try {
+        Pebble.sendAppMessage(
+            item.payload,
+            function() {
+                outboxBusy = false;
+                outboxQueue.shift();
+                if (item.label) {
+                    console.log("[solar] sent " + item.label);
+                }
+                flushOutboxQueue();
+            },
+            function(error) {
+                outboxBusy = false;
 
-            if (isAppMessageBusyError(error) && item.retries < OUTBOX_MAX_RETRIES) {
-                item.retries += 1;
-                scheduleOutboxFlush(OUTBOX_RETRY_DELAY_MS * item.retries);
-                return;
-            }
+                if (isAppMessageBusyError(error) && item.retries < OUTBOX_MAX_RETRIES) {
+                    item.retries += 1;
+                    scheduleOutboxFlush(OUTBOX_RETRY_DELAY_MS * item.retries);
+                    return;
+                }
 
-            outboxQueue.shift();
-            console.log("[solar] failed " + (item.label || "message") + ": " +
-                (error && error.message ? error.message : error));
-            flushOutboxQueue();
-        }
-    );
+                outboxQueue.shift();
+                console.log("[solar] failed " + (item.label || "message") + ": " +
+                    (error && error.message ? error.message : error));
+                flushOutboxQueue();
+            }
+        );
+    } catch (ex) {
+        outboxBusy = false;
+        outboxQueue.shift();
+        console.log("[solar] sendAppMessage threw: " + (ex && ex.message ? ex.message : ex));
+        flushOutboxQueue();
+    }
 }
 
 function sendAppMessage(payload, label) {
@@ -795,9 +803,14 @@ function requestAndSendWeather(location, reason, style) {
     var url = buildOpenMeteoUrl(location.lat, location.lon, style);
     requestJson(url, function(json, errorTag) {
         if (json && json.current) {
-            var payload = buildWeatherPayload(json.current, style);
-            saveWeatherCache(payload, location.lat, location.lon, style);
-            sendAppMessage(payload, "weather-current");
+            try {
+                var payload = buildWeatherPayload(json.current, style);
+                saveWeatherCache(payload, location.lat, location.lon, style);
+                sendAppMessage(payload, "weather-current");
+            } catch (ex) {
+                console.log("[solar] weather build error: " + (ex && ex.message ? ex.message : ex));
+                sendAppMessage({ WeatherStatus: 2 }, "weather-failed");
+            }
             return;
         }
 
@@ -842,7 +855,7 @@ function reverseGeocodeCity(lat, lon, done, onAttempt) {
         },
         {
             label: "mapsco",
-            url: "https://geocode.maps.co/reverse?lat=" + encodeURIComponent(String(lat)) + "&lon=" + encodeURIComponent(String(lon)),
+            url: "https://geocode.maps.co/reverse?lat=" + encodeURIComponent(String(lat)) + "&lon=" + encodeURIComponent(String(lon)) + "&api_key=69e2f0ed3ad0a723977358gfnc49780",
             parse: function(json) {
                 if (!json) {
                     return "";
@@ -877,7 +890,14 @@ function reverseGeocodeCity(lat, lon, done, onAttempt) {
         index += 1;
 
         requestJson(provider.url, function(json, errorTag) {
-            var city = provider.parse(json);
+            var city;
+            try {
+                city = provider.parse(json);
+            } catch (ex) {
+                console.log("[solar] geocode parse error via " + provider.label + ": " + (ex && ex.message ? ex.message : ex));
+                next();
+                return;
+            }
             if (city && city.length) {
                 console.log("[solar] city resolved via " + provider.label + ": " + city);
                 done(city);
@@ -914,6 +934,11 @@ function resolveCityName(location, done) {
 }
 
 function requestAndSendSolar(reason) {
+    if (solarUpdateInProgress) {
+        console.log("[solar] update skipped (" + reason + "), already in progress");
+        return;
+    }
+    solarUpdateInProgress = true;
     console.log("[solar] update started (" + reason + ")");
     if (reason === "startup" || reason === "watch-request" || reason === "settings-updated") {
         sendReloadFaceToken("refresh-" + reason);
@@ -930,13 +955,19 @@ function requestAndSendSolar(reason) {
         sendStatus(STATUS.grabbingLocation, 34);
         sendStatus(STATUS.calculatingSun, 48);
 
-        if (style.DevSweepEnabled === 1) {
-            payload = computeSweepPayload(devLat, devLon, SOURCE.manual, style.DevSweepCycleSeconds);
-            payload.CityName = "Dev Sweep";
-        } else {
-            var devWhen = style.DevReferenceEpoch > 0 ? new Date(style.DevReferenceEpoch * 1000) : new Date();
-            payload = computeSolarPayload(devLat, devLon, SOURCE.manual, devWhen);
-            payload.CityName = "Dev Preview";
+        try {
+            if (style.DevSweepEnabled === 1) {
+                payload = computeSweepPayload(devLat, devLon, SOURCE.manual, style.DevSweepCycleSeconds);
+                payload.CityName = "Dev Sweep";
+            } else {
+                var devWhen = style.DevReferenceEpoch > 0 ? new Date(style.DevReferenceEpoch * 1000) : new Date();
+                payload = computeSolarPayload(devLat, devLon, SOURCE.manual, devWhen);
+                payload.CityName = "Dev Preview";
+            }
+        } catch (ex) {
+            console.log("[solar] dev compute error: " + (ex && ex.message ? ex.message : ex));
+            solarUpdateInProgress = false;
+            return;
         }
 
         console.log("[solar] dev payload city=" + payload.CityName + " lat=" + devLat.toFixed(4) + " lon=" + devLon.toFixed(4));
@@ -947,16 +978,31 @@ function requestAndSendSolar(reason) {
         sendSettingsToWatch();
         requestAndSendWeather({ lat: devLat, lon: devLon, source: SOURCE.manual }, reason, style);
         sendStatus(STATUS.complete, 100);
+        solarUpdateInProgress = false;
         return;
     }
 
     resolveLocation(function(location) {
         sendStatus(STATUS.grabbingLocation, 34);
         sendStatus(STATUS.calculatingSun, 48);
-        var payload = computeSolarPayload(location.lat, location.lon, location.source, null);
+        var payload;
+        try {
+            payload = computeSolarPayload(location.lat, location.lon, location.source, null);
+        } catch (ex) {
+            console.log("[solar] compute error: " + (ex && ex.message ? ex.message : ex));
+            var cached = getCachedSolarPayload();
+            if (cached) {
+                payload = cached;
+            } else {
+                solarUpdateInProgress = false;
+                return;
+            }
+        }
 
         // Ship gradients immediately after location resolve; city label can refine a moment later.
-        payload.CityName = location.source === SOURCE.chicago ? "Chicago" : nearestKnownCityName(location.lat, location.lon);
+        if (!payload.CityName) {
+            payload.CityName = location.source === SOURCE.chicago ? "Chicago" : nearestKnownCityName(location.lat, location.lon);
+        }
         console.log("[solar] initial payload source=" + location.source + " city=" + payload.CityName + " lat=" + location.lat.toFixed(4) + " lon=" + location.lon.toFixed(4));
         cacheSolarPayload(payload);
         schedulePhaseRefreshAtEpoch(payload.NextSolarPhaseEpoch);
@@ -965,6 +1011,7 @@ function requestAndSendSolar(reason) {
         sendSettingsToWatch();
         requestAndSendWeather(location, reason, style);
         sendStatus(STATUS.complete, 100);
+        solarUpdateInProgress = false;
 
         resolveCityName(location, function(cityName) {
             if (!cityName || cityName === payload.CityName) {
@@ -1051,28 +1098,44 @@ function readRefreshRequest(payload) {
 }
 
 Pebble.addEventListener("ready", function() {
-    console.log("[solar] pkjs ready");
-    syncSettingsFromClayStorage();
-    sendSettingsToWatch();
-    // Prefer fresh phone location on launch; fallback to Chicago happens in resolveLocation.
-    requestAndSendSolar("startup");
-    startSchedulers();
+    try {
+        console.log("[solar] pkjs ready");
+        syncSettingsFromClayStorage();
+        sendSettingsToWatch();
+        // Prefer fresh phone location on launch; fallback to Chicago happens in resolveLocation.
+        requestAndSendSolar("startup");
+        startSchedulers();
+    } catch (ex) {
+        console.log("[solar] ready handler error: " + (ex && ex.message ? ex.message : ex));
+    }
 });
 
 Pebble.addEventListener("showConfiguration", function() {
-    Pebble.openURL(clay.generateUrl());
+    try {
+        Pebble.openURL(clay.generateUrl());
+    } catch (ex) {
+        console.log("[solar] showConfiguration error: " + (ex && ex.message ? ex.message : ex));
+    }
 });
 
 Pebble.addEventListener("appmessage", function(event) {
-    if (readRefreshRequest(event.payload) === 1) {
-        console.log("[solar] refresh requested by watch");
-        requestAndSendSolar("watch-request");
+    try {
+        if (readRefreshRequest(event.payload) === 1) {
+            console.log("[solar] refresh requested by watch");
+            requestAndSendSolar("watch-request");
+        }
+    } catch (ex) {
+        console.log("[solar] appmessage handler error: " + (ex && ex.message ? ex.message : ex));
     }
 });
 
 Pebble.addEventListener("webviewclosed", function(event) {
-    if (!event || !event.response || event.response === "CANCELLED") {
-        return;
+    try {
+        if (!event || !event.response || event.response === "CANCELLED") {
+            return;
+        }
+        applyClaySettingsFromResponse(event.response);
+    } catch (ex) {
+        console.log("[solar] webviewclosed handler error: " + (ex && ex.message ? ex.message : ex));
     }
-    applyClaySettingsFromResponse(event.response);
 });
