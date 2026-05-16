@@ -5,13 +5,6 @@
 #define SOURCE_CHICAGO 2
 #define SOURCE_CACHED 3
 
-#define STATUS_STARTING 0
-#define STATUS_GRABBING_LOCATION 1
-#define STATUS_CALCULATING_SUN 2
-#define STATUS_RESOLVING_CITY 3
-#define STATUS_SENDING_PAYLOAD 4
-#define STATUS_READY 6
-
 #define TEXT_MODE_AUTO 0
 #define TEXT_MODE_WHITE 1
 #define TEXT_MODE_BLACK 2
@@ -28,11 +21,11 @@
 #define WEATHER_STATUS_STALE 1
 #define WEATHER_STATUS_FAILED 2
 
-#define LOADING_TIMEOUT_MS 15000
-#define LOADING_STALE_HINT_MS 3500
-#define LOADING_STILL_WORKING_MS 6000
-#define LOADING_TIMER_INTERVAL_MS 125
-#define LOADING_TRANSITION_HOLD_MS 180
+#define PERSIST_KEY_STATE 1
+#define PERSIST_STATE_VERSION 1
+
+#define RECONNECT_REFRESH_MIN_INTERVAL_MS 30000
+#define TAP_REFRESH_MIN_INTERVAL_MS 10000
 
 #define ANGLE_TRANSITION_MS 3500
 #define AMBIENT_DRIFT_PERIOD_MS 18000
@@ -124,29 +117,22 @@ typedef struct {
   int32_t custom_latitude_e6;
   int32_t custom_longitude_e6;
   int32_t debug_benchmark;
-  int32_t status_code;
-  int32_t loading_progress;
-  int32_t loading_progress_target;
   int32_t target_gradient_angle_deg_x100;
   int32_t previous_gradient_angle_deg_x100;
   uint32_t last_reload_face_token;
   uint32_t refresh_counter;
-  uint32_t loading_started_ms;
-  uint32_t loading_status_started_ms;
-  uint32_t launch_transition_deadline_ms;
   uint32_t angle_transition_started_ms;
   uint32_t last_payload_received_ms;
+  uint32_t last_refresh_request_ms;
+  uint32_t last_tap_refresh_ms;
   uint32_t refresh_badge_until_ms;
   uint32_t event_moment_until_ms;
-  bool launch_done;
   bool has_payload;
-  bool had_payload_once;
   bool angle_transition_active;
   bool bt_connected;
   bool dev_mode_enabled;
   bool dev_sweep_enabled;
   bool dev_show_debug_overlay;
-  uint8_t loading_hint_mode;
   char city_name[48];
   int32_t show_solar_phase;
   int32_t show_next_phase_countdown;
@@ -179,7 +165,6 @@ static const RenderProfile s_render_profiles[] = {
 
 static Window *s_window;
 static Layer *s_canvas_layer;
-static AppTimer *s_loading_timer;
 static AppTimer *s_animation_timer;
 static const RenderProfile *s_active_profile;
 
@@ -222,14 +207,8 @@ static AppState s_state = {
   .weather_wind_x10 = 0,
   .weather_precip_x100 = 0,
   .weather_updated_epoch = 0,
-  .status_code = STATUS_STARTING,
-  .loading_progress = 0,
-  .loading_progress_target = 0,
   .event_moment_until_ms = 0,
-  .launch_done = false,
   .has_payload = false,
-  .had_payload_once = false,
-  .loading_hint_mode = 0,
   .city_name = "Chicago",
 };
 
@@ -459,6 +438,87 @@ static uint32_t prv_now_ms(void) {
   uint16_t ms;
   time_ms(&sec, &ms);
   return (uint32_t)(sec * 1000 + ms);
+}
+
+typedef struct __attribute__((packed)) {
+  uint8_t version;
+  uint8_t reserved[3];
+  int32_t source_code;
+  int32_t latitude_e6;
+  int32_t longitude_e6;
+  int32_t azimuth_deg_x100;
+  int32_t altitude_deg_x100;
+  int32_t gradient_angle_deg_x100;
+  int32_t computed_at_epoch;
+  int32_t weather_status;
+  int32_t weather_temp_x10;
+  int32_t weather_cloud_cover;
+  int32_t weather_code;
+  int32_t weather_wind_x10;
+  int32_t weather_precip_x100;
+  int32_t weather_updated_epoch;
+  int32_t current_solar_phase_id;
+  int32_t next_solar_phase_id;
+  int32_t next_solar_phase_epoch;
+  char city_name[48];
+} PersistedState;
+
+static void prv_persist_state(void) {
+  PersistedState snap = {0};
+  snap.version = PERSIST_STATE_VERSION;
+  snap.source_code = s_state.source_code;
+  snap.latitude_e6 = s_state.latitude_e6;
+  snap.longitude_e6 = s_state.longitude_e6;
+  snap.azimuth_deg_x100 = s_state.azimuth_deg_x100;
+  snap.altitude_deg_x100 = s_state.altitude_deg_x100;
+  snap.gradient_angle_deg_x100 = s_state.gradient_angle_deg_x100;
+  snap.computed_at_epoch = s_state.computed_at_epoch;
+  snap.weather_status = s_state.weather_status;
+  snap.weather_temp_x10 = s_state.weather_temp_x10;
+  snap.weather_cloud_cover = s_state.weather_cloud_cover;
+  snap.weather_code = s_state.weather_code;
+  snap.weather_wind_x10 = s_state.weather_wind_x10;
+  snap.weather_precip_x100 = s_state.weather_precip_x100;
+  snap.weather_updated_epoch = s_state.weather_updated_epoch;
+  snap.current_solar_phase_id = s_state.current_solar_phase_id;
+  snap.next_solar_phase_id = s_state.next_solar_phase_id;
+  snap.next_solar_phase_epoch = s_state.next_solar_phase_epoch;
+  snprintf(snap.city_name, sizeof(snap.city_name), "%s", s_state.city_name);
+  persist_write_data(PERSIST_KEY_STATE, &snap, sizeof(snap));
+}
+
+static void prv_load_persisted_state(void) {
+  if (!persist_exists(PERSIST_KEY_STATE)) {
+    return;
+  }
+  PersistedState snap = {0};
+  int read = persist_read_data(PERSIST_KEY_STATE, &snap, sizeof(snap));
+  if (read < (int)sizeof(snap) || snap.version != PERSIST_STATE_VERSION) {
+    return;
+  }
+  s_state.source_code = snap.source_code;
+  s_state.latitude_e6 = snap.latitude_e6;
+  s_state.longitude_e6 = snap.longitude_e6;
+  s_state.azimuth_deg_x100 = snap.azimuth_deg_x100;
+  s_state.altitude_deg_x100 = snap.altitude_deg_x100;
+  s_state.gradient_angle_deg_x100 = snap.gradient_angle_deg_x100;
+  s_state.target_gradient_angle_deg_x100 = snap.gradient_angle_deg_x100;
+  s_state.previous_gradient_angle_deg_x100 = snap.gradient_angle_deg_x100;
+  s_state.computed_at_epoch = snap.computed_at_epoch;
+  s_state.weather_status = snap.weather_status;
+  s_state.weather_temp_x10 = snap.weather_temp_x10;
+  s_state.weather_cloud_cover = snap.weather_cloud_cover;
+  s_state.weather_code = snap.weather_code;
+  s_state.weather_wind_x10 = snap.weather_wind_x10;
+  s_state.weather_precip_x100 = snap.weather_precip_x100;
+  s_state.weather_updated_epoch = snap.weather_updated_epoch;
+  s_state.current_solar_phase_id = snap.current_solar_phase_id;
+  s_state.next_solar_phase_id = snap.next_solar_phase_id;
+  s_state.next_solar_phase_epoch = snap.next_solar_phase_epoch;
+  if (snap.city_name[0] != '\0') {
+    snprintf(s_state.city_name, sizeof(s_state.city_name), "%s", snap.city_name);
+  }
+  s_state.has_payload = true;
 }
 
 static float prv_effective_gradient_angle_deg(uint32_t now_ms, const RenderProfile *profile);
@@ -937,101 +997,8 @@ static void prv_draw_styled_text(GContext *ctx, const char *text, GFont font, Te
   graphics_draw_text(ctx, text, font, rect, GTextOverflowModeTrailingEllipsis, alignment, NULL);
 }
 
-static int32_t prv_loading_floor_for_code(int32_t code) {
-  if (code == STATUS_GRABBING_LOCATION) return 10;
-  if (code == STATUS_CALCULATING_SUN) return 42;
-  if (code == STATUS_RESOLVING_CITY) return 58;
-  if (code == STATUS_SENDING_PAYLOAD) return 86;
-  if (code == STATUS_READY) return 100;
-  return 2;
-}
-
-static int32_t prv_loading_ceiling_for_code(int32_t code) {
-  if (code == STATUS_GRABBING_LOCATION) return 45;
-  if (code == STATUS_CALCULATING_SUN) return 65;
-  if (code == STATUS_RESOLVING_CITY) return 88;
-  if (code == STATUS_SENDING_PAYLOAD) return 95;
-  if (code == STATUS_READY) return 100;
-  return 25;
-}
-
-static const char *prv_status_text_from_code(int32_t code) {
-  if (code == STATUS_STARTING) return "Starting";
-  if (code == STATUS_GRABBING_LOCATION) return "Grabbing location";
-  if (code == STATUS_CALCULATING_SUN) return "Calculating sun";
-  if (code == STATUS_RESOLVING_CITY) return "Resolving city";
-  if (code == STATUS_SENDING_PAYLOAD) return "Sending payload";
-  if (code == STATUS_READY) return "Ready";
-  return "Starting";
-}
-
-static const char *prv_loading_status_line(void) {
-  if (s_state.loading_hint_mode == 1) {
-    return "Waiting for phone GPS";
-  }
-  if (s_state.loading_hint_mode == 2) {
-    return "Still loading";
-  }
-  return prv_status_text_from_code(s_state.status_code);
-}
-
-static void prv_set_loading_status(int32_t code) {
-  int32_t clamped = prv_clamp_i32(code, STATUS_STARTING, STATUS_READY);
-  if (clamped != s_state.status_code) {
-    s_state.status_code = clamped;
-    s_state.loading_status_started_ms = prv_now_ms();
-  }
-}
-
-static void prv_set_loading_progress_target(int32_t percent) {
-  int32_t clamped = prv_clamp_i32(percent, 0, 100);
-  if (clamped > s_state.loading_progress_target) {
-    s_state.loading_progress_target = clamped;
-  }
-}
-
-static bool prv_advance_loading_progress(uint32_t now_ms) {
-  int32_t ceiling = prv_loading_ceiling_for_code(s_state.status_code);
-  int32_t floor = prv_loading_floor_for_code(s_state.status_code);
-  int32_t elapsed_in_stage = (int32_t)(now_ms - s_state.loading_status_started_ms);
-  int32_t idle_ramp_target = floor + (elapsed_in_stage / 320);
-  if (idle_ramp_target > ceiling) {
-    idle_ramp_target = ceiling;
-  }
-  int32_t desired = s_state.loading_progress_target;
-  if (desired > ceiling) {
-    desired = ceiling;
-  }
-  if (desired < idle_ramp_target) {
-    desired = idle_ramp_target;
-  }
-
-  if (desired <= s_state.loading_progress) {
-    return false;
-  }
-
-  int32_t delta = desired - s_state.loading_progress;
-  int32_t step = delta > 10 ? 3 : 1;
-  s_state.loading_progress = desired < (s_state.loading_progress + step) ? desired : (s_state.loading_progress + step);
-  return true;
-}
-
-static void prv_start_loading_timer(void);
 static void prv_start_animation_timer(void);
 static void prv_restart_animation_timer(void);
-
-static void prv_begin_loading(void) {
-  s_state.launch_done = false;
-  s_state.has_payload = false;
-  s_state.loading_started_ms = prv_now_ms();
-  s_state.loading_status_started_ms = s_state.loading_started_ms;
-  s_state.status_code = STATUS_STARTING;
-  s_state.loading_progress = 0;
-  s_state.loading_progress_target = 0;
-  s_state.loading_hint_mode = 0;
-  s_state.launch_transition_deadline_ms = 0;
-  prv_start_loading_timer();
-}
 
 static void prv_format_altitude_x100(int32_t altitude_x100, char *out, size_t len) {
   int32_t abs_value = altitude_x100 < 0 ? -altitude_x100 : altitude_x100;
@@ -1609,85 +1576,47 @@ static void prv_draw_face(GContext *ctx, GRect bounds) {
   }
 
   prv_draw_refresh_badge(ctx, bounds, now_ms);
-}
 
-static void prv_draw_loading_card(GContext *ctx, GRect bounds) {
-  GColor black = GColorBlack;
-  GColor white = GColorWhite;
-  GColor panel = prv_make_color_rgb((Rgb){18, 18, 28});
-  GColor track = prv_make_color_rgb((Rgb){42, 42, 58});
-  GColor fill = prv_make_color_rgb((Rgb){104, 177, 255});
-
-  graphics_context_set_fill_color(ctx, black);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-
-  int16_t panel_w = bounds.size.w - 20;
-  if (panel_w > 200) panel_w = 200;
-  int16_t panel_h = bounds.size.h - 28;
-  if (panel_h > 120) panel_h = 120;
-  int16_t panel_x = (bounds.size.w - panel_w) / 2;
-  int16_t panel_y = (bounds.size.h - panel_h) / 2;
-
-  graphics_context_set_fill_color(ctx, panel);
-  graphics_fill_rect(ctx, GRect(panel_x, panel_y, panel_w, panel_h), 0, GCornerNone);
-
-  graphics_context_set_text_color(ctx, white);
-  graphics_draw_text(ctx, "Solar Gradient", s_info_font_large,
-                     GRect(panel_x, panel_y + 18, panel_w, 24),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-  graphics_draw_text(ctx, prv_loading_status_line(), s_info_font_small,
-                     GRect(panel_x + 4, panel_y + 54, panel_w - 8, 18),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-  int16_t bar_w = panel_w - 28;
-  int16_t bar_h = 8;
-  int16_t bar_x = panel_x + 14;
-  int16_t bar_y = panel_y + 76;
-
-  graphics_context_set_fill_color(ctx, track);
-  graphics_fill_rect(ctx, GRect(bar_x, bar_y, bar_w, bar_h), 0, GCornerNone);
-
-  int16_t fill_w = (int16_t)((bar_w * prv_clamp_i32(s_state.loading_progress, 0, 100)) / 100);
-  if (fill_w > 0) {
-    graphics_context_set_fill_color(ctx, fill);
-    graphics_fill_rect(ctx, GRect(bar_x, bar_y, fill_w, bar_h), 0, GCornerNone);
+  if (!s_state.bt_connected) {
+    int16_t dot_size = 4;
+    int16_t dot_x = bounds.size.w - dot_size - 5;
+    int16_t dot_y = bounds.size.h - dot_size - 5;
+#ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, GColorRed);
+#else
+    graphics_context_set_fill_color(ctx, GColorBlack);
+#endif
+    graphics_fill_rect(ctx, GRect(dot_x, dot_y, dot_size, dot_size), 1, GCornersAll);
   }
-
-  char percent_text[8];
-  snprintf(percent_text, sizeof(percent_text), "%ld%%", (long)prv_clamp_i32(s_state.loading_progress, 0, 100));
-  graphics_context_set_text_color(ctx, white);
-  graphics_draw_text(ctx, percent_text, s_info_font_small,
-                     GRect(panel_x, panel_y + 90, panel_w, 18),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 }
 
 static void prv_canvas_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   s_active_profile = prv_render_profile_for_bounds(bounds);
-
-  if (!s_state.bt_connected && !s_state.has_payload) {
-    s_state.launch_done = true;
-  }
-
-  if (s_state.launch_done) {
-    prv_draw_face(ctx, bounds);
-  } else {
-    prv_draw_loading_card(ctx, bounds);
-  }
+  prv_draw_face(ctx, bounds);
 }
 
 static void prv_send_refresh_request(void) {
+  if (!s_state.bt_connected) {
+    return;
+  }
+
   DictionaryIterator *iter = NULL;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+  AppMessageResult begin = app_message_outbox_begin(&iter);
+  if (begin != APP_MSG_OK || !iter) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "outbox_begin failed: %d", (int)begin);
     return;
   }
 
   s_state.refresh_counter = (s_state.refresh_counter + 1) & 0x7fffffff;
+  s_state.last_refresh_request_ms = prv_now_ms();
   dict_write_uint8(iter, MESSAGE_KEY_RefreshRequest, 1);
   dict_write_uint32(iter, MESSAGE_KEY_ReloadFaceToken, s_state.refresh_counter);
   dict_write_end(iter);
-  app_message_outbox_send();
+  AppMessageResult send = app_message_outbox_send();
+  if (send != APP_MSG_OK) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "outbox_send failed: %d", (int)send);
+  }
 }
 
 static void prv_on_message_received(DictionaryIterator *iter, void *context) {
@@ -1700,7 +1629,6 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
     uint32_t token = (uint32_t)prv_tuple_to_i32(reload_token);
     if (token != s_state.last_reload_face_token) {
       s_state.last_reload_face_token = token;
-      prv_begin_loading();
       loading_changed = true;
     }
   }
@@ -1896,18 +1824,15 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
 
   Tuple *status_code = dict_find(iter, MESSAGE_KEY_StatusCode);
   if (status_code) {
-    int32_t code = prv_tuple_to_i32(status_code);
-    prv_set_loading_status(code);
-    if (code == STATUS_READY) {
-      prv_set_loading_progress_target(100);
-    }
-    loading_changed = true;
+    // Loading UI has been removed; the StatusCode field is accepted for
+    // backward compatibility with the JS payload but no longer drives any
+    // on-watch state.
+    (void)status_code;
   }
 
   Tuple *progress_percent = dict_find(iter, MESSAGE_KEY_ProgressPercent);
   if (progress_percent) {
-    prv_set_loading_progress_target(prv_tuple_to_i32(progress_percent));
-    loading_changed = true;
+    (void)progress_percent;
   }
 
   Tuple *lat = dict_find(iter, MESSAGE_KEY_LatitudeE6);
@@ -1920,8 +1845,16 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   Tuple *city = dict_find(iter, MESSAGE_KEY_CityName);
 
   if (city) {
-    snprintf(s_state.city_name, sizeof(s_state.city_name), "%s", city->value->cstring);
-    loading_changed = true;
+    if (city->type == TUPLE_CSTRING && city->length > 0) {
+      size_t max_len = sizeof(s_state.city_name) - 1;
+      size_t copy_len = city->length;
+      if (copy_len > max_len) {
+        copy_len = max_len;
+      }
+      memcpy(s_state.city_name, city->value->cstring, copy_len);
+      s_state.city_name[copy_len] = '\0';
+      loading_changed = true;
+    }
   }
 
   if (!lat || !lon || !az || !alt || !angle || !computed) {
@@ -1937,7 +1870,7 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   s_state.latitude_e6 = prv_tuple_to_i32(lat);
   s_state.longitude_e6 = prv_tuple_to_i32(lon);
   uint32_t now_ms = prv_now_ms();
-  bool was_ready = s_state.had_payload_once;
+  bool was_ready = s_state.has_payload;
 
   s_state.azimuth_deg_x100 = prv_tuple_to_i32(az);
   int32_t previous_altitude_x100 = s_state.altitude_deg_x100;
@@ -1969,18 +1902,15 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
   }
 
   s_state.has_payload = true;
-  s_state.had_payload_once = true;
   s_state.last_payload_received_ms = now_ms;
-  if (was_ready && s_state.launch_done) {
+  if (was_ready) {
     s_state.refresh_badge_until_ms = now_ms + REFRESH_BADGE_MS;
   }
-  prv_set_loading_status(STATUS_READY);
-  s_state.loading_progress_target = 100;
-  s_state.loading_progress = 100;
-  s_state.launch_transition_deadline_ms = now_ms + LOADING_TRANSITION_HOLD_MS;
-  prv_start_loading_timer();
+  prv_persist_state();
   if (motion_changed) {
     prv_restart_animation_timer();
+  } else {
+    prv_start_animation_timer();
   }
   if (s_canvas_layer) {
     layer_mark_dirty(s_canvas_layer);
@@ -1988,11 +1918,18 @@ static void prv_on_message_received(DictionaryIterator *iter, void *context) {
 }
 
 static void prv_on_connection_event(bool connected) {
+  bool was_connected = s_state.bt_connected;
   s_state.bt_connected = connected;
-  if (connected && s_state.had_payload_once) {
-    prv_begin_loading();
-    prv_send_refresh_request();
+  APP_LOG(APP_LOG_LEVEL_INFO, "BT %s", connected ? "connected" : "disconnected");
+
+  if (connected && !was_connected) {
+    uint32_t now_ms = prv_now_ms();
+    if (s_state.last_refresh_request_ms == 0 ||
+        (now_ms - s_state.last_refresh_request_ms) > RECONNECT_REFRESH_MIN_INTERVAL_MS) {
+      prv_send_refresh_request();
+    }
   }
+
   if (s_canvas_layer) {
     layer_mark_dirty(s_canvas_layer);
   }
@@ -2006,70 +1943,56 @@ static void prv_on_minute_tick(struct tm *tick_time, TimeUnits changed) {
   }
 }
 
-static void prv_loading_timer_cb(void *context) {
+static void prv_on_inbox_dropped(AppMessageResult reason, void *context) {
   (void)context;
-  s_loading_timer = NULL;
-  bool changed = false;
+  APP_LOG(APP_LOG_LEVEL_WARNING, "inbox dropped: %d", (int)reason);
+}
+
+static void prv_on_outbox_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
+  (void)iter;
+  (void)context;
+  APP_LOG(APP_LOG_LEVEL_WARNING, "outbox failed: %d", (int)reason);
+  if (s_state.weather_enabled && s_state.weather_updated_epoch > 0 &&
+      s_state.weather_status != WEATHER_STATUS_FAILED) {
+    s_state.weather_status = WEATHER_STATUS_STALE;
+    if (s_canvas_layer) {
+      layer_mark_dirty(s_canvas_layer);
+    }
+  }
+}
+
+static void prv_on_outbox_sent(DictionaryIterator *iter, void *context) {
+  (void)iter;
+  (void)context;
+}
+
+static void prv_on_accel_tap(AccelAxisType axis, int32_t direction) {
+  (void)axis;
+  (void)direction;
   uint32_t now_ms = prv_now_ms();
-
-  if (!s_state.launch_done) {
-    changed = prv_advance_loading_progress(now_ms);
-
-    uint32_t elapsed_ms = now_ms - s_state.loading_started_ms;
-    uint8_t next_hint = 0;
-    if (elapsed_ms > LOADING_STALE_HINT_MS && elapsed_ms <= LOADING_STILL_WORKING_MS &&
-        s_state.status_code == STATUS_GRABBING_LOCATION) {
-      next_hint = 1;
-    } else if (elapsed_ms > LOADING_STILL_WORKING_MS && elapsed_ms <= LOADING_TIMEOUT_MS) {
-      next_hint = 2;
-    }
-    if (next_hint != s_state.loading_hint_mode) {
-      s_state.loading_hint_mode = next_hint;
-      changed = true;
-    }
-
-    if (elapsed_ms > LOADING_TIMEOUT_MS) {
-      s_state.launch_done = true;
-      changed = true;
-    }
-
-    if (s_state.launch_transition_deadline_ms != 0 && now_ms >= s_state.launch_transition_deadline_ms) {
-      s_state.launch_transition_deadline_ms = 0;
-      s_state.launch_done = true;
-      changed = true;
-    }
+  if (s_state.last_tap_refresh_ms != 0 &&
+      (now_ms - s_state.last_tap_refresh_ms) < TAP_REFRESH_MIN_INTERVAL_MS) {
+    return;
   }
-
-  if (changed && s_canvas_layer) {
-    layer_mark_dirty(s_canvas_layer);
-  }
-
-  if (!s_state.launch_done && s_canvas_layer) {
-    s_loading_timer = app_timer_register(LOADING_TIMER_INTERVAL_MS, prv_loading_timer_cb, NULL);
-  }
+  s_state.last_tap_refresh_ms = now_ms;
+  prv_send_refresh_request();
 }
 
 static void prv_animation_timer_cb(void *context) {
   (void)context;
   s_animation_timer = NULL;
-  
-  if (s_canvas_layer && s_state.launch_done) {
+
+  if (s_canvas_layer) {
     layer_mark_dirty(s_canvas_layer);
   }
 
   uint32_t now_ms = prv_now_ms();
-  bool needs_animation = s_state.angle_transition_active || 
-                         (s_state.refresh_badge_until_ms > 0 && now_ms < s_state.refresh_badge_until_ms) || 
+  bool needs_animation = s_state.angle_transition_active ||
+                         (s_state.refresh_badge_until_ms > 0 && now_ms < s_state.refresh_badge_until_ms) ||
                          (s_state.event_moment_until_ms > 0 && now_ms < s_state.event_moment_until_ms);
 
-  if (needs_animation || !s_state.launch_done) {
+  if (needs_animation) {
     prv_start_animation_timer();
-  }
-}
-
-static void prv_start_loading_timer(void) {
-  if (!s_loading_timer && !s_state.launch_done && s_canvas_layer) {
-    s_loading_timer = app_timer_register(LOADING_TIMER_INTERVAL_MS, prv_loading_timer_cb, NULL);
   }
 }
 
@@ -2107,18 +2030,10 @@ static void prv_window_unload(Window *window) {
 
   // Cancel timers BEFORE destroying the canvas layer to prevent
   // callbacks from firing into freed memory.
-  if (s_loading_timer) {
-    app_timer_cancel(s_loading_timer);
-    s_loading_timer = NULL;
-  }
   if (s_animation_timer) {
     app_timer_cancel(s_animation_timer);
     s_animation_timer = NULL;
   }
-
-  tick_timer_service_unsubscribe();
-  bluetooth_connection_service_unsubscribe();
-  app_message_deregister_callbacks();
 
   if (s_canvas_layer) {
     layer_destroy(s_canvas_layer);
@@ -2131,9 +2046,8 @@ static void prv_init(void) {
   s_info_font_large = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   s_info_font_small = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
 
+  prv_load_persisted_state();
   s_state.bt_connected = bluetooth_connection_service_peek();
-  s_state.loading_started_ms = prv_now_ms();
-  s_state.loading_status_started_ms = s_state.loading_started_ms;
 
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
@@ -2143,30 +2057,30 @@ static void prv_init(void) {
   window_stack_push(s_window, true);
 
   app_message_register_inbox_received(prv_on_message_received);
+  app_message_register_inbox_dropped(prv_on_inbox_dropped);
+  app_message_register_outbox_failed(prv_on_outbox_failed);
+  app_message_register_outbox_sent(prv_on_outbox_sent);
   app_message_open(1024, 256);
-  
+
   APP_LOG(APP_LOG_LEVEL_INFO, "[RAM] Heap Free: %d bytes (Used: %d)", (int)heap_bytes_free(), (int)heap_bytes_used());
 
   tick_timer_service_subscribe(MINUTE_UNIT, prv_on_minute_tick);
   bluetooth_connection_service_subscribe(prv_on_connection_event);
+  accel_tap_service_subscribe(prv_on_accel_tap);
 
-  prv_begin_loading();
-  prv_send_refresh_request();
+  if (s_state.bt_connected) {
+    prv_send_refresh_request();
+  }
   prv_start_animation_timer();
 }
 
 static void prv_deinit(void) {
-  // Timers and services are already cleaned up in prv_window_unload,
-  // but guard here too in case deinit runs without window unload.
-  if (s_loading_timer) {
-    app_timer_cancel(s_loading_timer);
-    s_loading_timer = NULL;
-  }
   if (s_animation_timer) {
     app_timer_cancel(s_animation_timer);
     s_animation_timer = NULL;
   }
 
+  accel_tap_service_unsubscribe();
   tick_timer_service_unsubscribe();
   bluetooth_connection_service_unsubscribe();
   app_message_deregister_callbacks();
