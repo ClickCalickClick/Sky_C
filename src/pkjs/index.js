@@ -544,6 +544,9 @@ function resolveLocation(done) {
 
 function getSolarPhases(lat, lon, now) {
     var thresholds = [-18, -6, -2, 2, 10, 20, 35];
+    // Ascending crossing of threshold k maps to this phase ID.
+    // k=5 (20 deg) stays at Morning Light (5); only k=6 (35 deg) enters Midday Sun (6).
+    var ascendingPhaseIds = [1, 2, 3, 4, 5, 5, 6];
     function getAlt(d) {
         return SunCalc.getPosition(d, lat, lon).altitude * 180 / Math.PI;
     }
@@ -556,7 +559,7 @@ function getSolarPhases(lat, lon, now) {
         for (var k = 0; k < thresholds.length; k++) {
             var th = thresholds[k];
             if (altb < th && searchAltBack >= th) {
-                currentPhaseId = k + 1 > 6 ? 6 : k + 1;
+                currentPhaseId = ascendingPhaseIds[k];
                 break;
             }
             if (altb > th && searchAltBack <= th) {
@@ -580,8 +583,11 @@ function getSolarPhases(lat, lon, now) {
         for (var j = 0; j < thresholds.length; j++) {
             var th2 = thresholds[j];
             if (searchAltFwd < th2 && altf >= th2) {
-                nextPhaseId = j + 1 > 6 ? 6 : j + 1;
-                nextEpoch = Math.floor(tf.getTime() / 1000);
+                var candidateAsc = ascendingPhaseIds[j];
+                if (candidateAsc !== currentPhaseId) {
+                    nextPhaseId = candidateAsc;
+                    nextEpoch = Math.floor(tf.getTime() / 1000);
+                }
                 break;
             }
             if (searchAltFwd > th2 && altf <= th2) {
